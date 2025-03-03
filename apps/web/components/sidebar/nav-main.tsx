@@ -43,11 +43,7 @@ export function NavMain({
           const active = pathname === item.url;
           return (
             <SidebarMenuItem
-              className={
-                active
-                  ? "bg-muted-foreground dark:text-black text-white rounded-md"
-                  : ""
-              }
+              className={active ? "bg-muted rounded-md" : ""}
               onClick={() => {
                 router.push(item.url);
               }}

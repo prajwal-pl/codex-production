@@ -1,13 +1,13 @@
 import Header from "components/global/header";
 import { metadata } from "components/lib/page-metadata";
 
-const Dashboard = () => {
+const Workspace = () => {
   return (
     <Header
-      title={metadata.dashboard.title}
-      description={metadata.dashboard.description}
+      title={metadata.workspace.title}
+      description={metadata.workspace.description}
     />
   );
 };
 
-export default Dashboard;
+export default Workspace;

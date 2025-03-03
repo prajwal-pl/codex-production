@@ -1,13 +1,13 @@
 import Header from "components/global/header";
 import { metadata } from "components/lib/page-metadata";
 
-const Dashboard = () => {
+const Settings = () => {
   return (
     <Header
-      title={metadata.dashboard.title}
-      description={metadata.dashboard.description}
+      title={metadata.settings.title}
+      description={metadata.settings.description}
     />
   );
 };
 
-export default Dashboard;
+export default Settings;
