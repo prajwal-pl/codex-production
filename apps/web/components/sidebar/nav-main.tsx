@@ -49,7 +49,10 @@ export function NavMain({
               }}
               key={item.url}
             >
-              <SidebarMenuButton tooltip={item.title}>
+              <SidebarMenuButton
+                className="cursor-pointer"
+                tooltip={item.title}
+              >
                 {item.icon && <item.icon />}
                 <span>{item.title}</span>
               </SidebarMenuButton>

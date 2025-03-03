@@ -31,4 +31,8 @@ export const metadata = {
     title: "Your Projects",
     description: "Explore all of your private and public projects",
   },
+  practice: {
+    title: "Code Editor",
+    description: "Run code snippets and practice algorithms",
+  },
 };

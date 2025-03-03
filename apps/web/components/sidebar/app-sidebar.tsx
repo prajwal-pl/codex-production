@@ -13,6 +13,7 @@ import {
   Users,
   Wallet,
   History,
+  Code,
 } from "lucide-react";
 
 import { NavMain } from "components/sidebar/nav-main";
@@ -62,9 +63,9 @@ const data = {
       icon: SquareTerminal,
     },
     {
-      title: "Settings",
-      url: "/settings",
-      icon: Settings2,
+      title: "Practice",
+      url: "/practice",
+      icon: Code,
     },
     {
       title: "History",
@@ -75,6 +76,12 @@ const data = {
       title: "Billing",
       url: "/billing",
       icon: Wallet,
+    },
+
+    {
+      title: "Settings",
+      url: "/settings",
+      icon: Settings2,
     },
   ],
   projects: [
