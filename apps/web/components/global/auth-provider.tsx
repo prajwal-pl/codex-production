@@ -24,7 +24,7 @@ const AuthProvider = ({ children }: propTypes) => {
           Meet Codex, your AI powered project assistant
         </h2>
         <p className="text-iridium md:text-sm mb-10">
-          Axion is capable of building your projects from scratch, with just a
+          Codex is capable of building your projects from scratch, with just a
           prompt.
           <br />
           Making your project management experience seamless and efficient.
