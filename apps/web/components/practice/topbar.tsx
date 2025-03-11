@@ -23,11 +23,14 @@ const TopBar = () => {
             <SelectGroup>
               <SelectItem value="Javascript">Javascript</SelectItem>
               <SelectItem value="Typescript">Typescript</SelectItem>
+              <SelectItem value="Java">Java</SelectItem>
               <SelectItem value="Python">Python</SelectItem>
               <SelectItem value="Rust">Rust</SelectItem>
               <SelectItem value="GoLang">GoLang</SelectItem>
               <SelectItem value="C">C</SelectItem>
               <SelectItem value="C++">C++</SelectItem>
+              <SelectItem value="C#">C#</SelectItem>
+              <SelectItem value="Ruby">Ruby</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
