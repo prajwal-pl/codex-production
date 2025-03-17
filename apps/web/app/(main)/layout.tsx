@@ -15,13 +15,6 @@ type SidebarProps = {
 };
 
 const SidebarLayout = ({ children }: SidebarProps) => {
-  const { isSignedIn } = useUser();
-  const router = useRouter();
-
-  //   if (!isSignedIn) {
-  //     router.push("/sign-in");
-  //   }
-
   return (
     <SidebarProvider defaultOpen={false}>
       <AppSidebar />
