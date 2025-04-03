@@ -1,16 +1,34 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Editor } from "@monaco-editor/react";
+import useCodeStore from "components/lib/store";
+import { LANGUAGE_CONFIG } from "app/utils/constants";
 
 const CodeEditor = () => {
+  const { setCode, language } = useCodeStore();
+  const [defaultCode, setDefaultCode] = useState<string | undefined>(
+    LANGUAGE_CONFIG[language]?.defaultCode
+  );
+  const handleCodeChange = (value: string | undefined) => {
+    if (value === undefined) return;
+    setCode(value);
+  };
+
+  useEffect(() => {
+    setDefaultCode(LANGUAGE_CONFIG[language]?.defaultCode);
+    setCode(LANGUAGE_CONFIG[language]?.defaultCode || "");
+    console.log(LANGUAGE_CONFIG[language]?.defaultCode);
+  }, [language]);
+
   return (
     <div className="rounded border-muted border-2 overflow-hidden">
       <Editor
         theme="vs-dark"
         height={`85vh`}
         width={`80vh`}
-        language="javascript"
-        defaultValue="console.log('Hello World')"
+        language={language}
+        value={defaultCode}
+        onChange={handleCodeChange}
         options={{
           minimap: { enabled: false },
           roundedSelection: true,
