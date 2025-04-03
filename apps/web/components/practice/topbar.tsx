@@ -16,20 +16,39 @@ import { runPracticeCode } from "app/actions/practice";
 import { LANGUAGE_CONFIG } from "app/utils/constants";
 
 const TopBar = () => {
-  const { code, language, setLanguage, setOutput, resetOutput, setIsRunning } =
-    useCodeStore();
+  const {
+    code,
+    language,
+    setLanguage,
+    setOutput,
+    resetOutput,
+    setIsRunning,
+    setError,
+    resetError,
+  } = useCodeStore();
 
   const handleValueChange = (value: string) => {
     console.log(value);
     setLanguage(value);
     resetOutput();
+    resetError();
   };
 
   const handleCodeSubmit = async () => {
     setIsRunning(true);
     console.log(code);
-    const output = await runPracticeCode(code, language);
-    setOutput(output);
+    const {
+      output,
+      stderr,
+      stdout,
+      code: outputCode,
+    } = await runPracticeCode(code, language);
+    if (outputCode == 0) {
+      setOutput(output);
+    }
+    if (outputCode == 1) {
+      setError(stderr);
+    }
     setIsRunning(false);
   };
 
