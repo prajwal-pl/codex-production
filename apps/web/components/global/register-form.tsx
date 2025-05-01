@@ -5,20 +5,25 @@ import { Button } from "components/ui/button";
 import { Input } from "components/ui/input";
 import { Label } from "components/ui/label";
 import { cn } from "../lib/utils";
-import { useSignIn } from "@clerk/nextjs";
+import { useSignUp } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { InputOTP, InputOTPSlot } from "components/ui/input-otp";
 
-export function LoginForm({
+export function RegisterForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter();
 
-  const { signIn, isLoaded, setActive } = useSignIn();
+  const { signUp, isLoaded, setActive } = useSignUp();
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otpGenerated, setOtpGenerated] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
     if (!isLoaded) {
@@ -26,7 +31,7 @@ export function LoginForm({
     }
 
     try {
-      const authenticated = await signIn.create({
+      const authenticated = await signUp.create({
         strategy: "oauth_google",
         redirectUrl: "/dashboard",
         actionCompleteRedirectUrl: "/dashboard",
@@ -51,15 +56,22 @@ export function LoginForm({
     }
 
     try {
-      const authenticated = await signIn.create({
-        identifier: email,
+      const authenticated = await signUp.create({
+        username: username,
+        emailAddress: email,
         password: password,
       });
 
+      signUp.prepareEmailAddressVerification({
+        strategy: "email_code",
+      });
+
+      setOtpGenerated(true);
+
       if (authenticated.status === "complete") {
         await setActive({ session: authenticated.createdSessionId });
-        toast("Welcome back!", {
-          description: "You have successfully logged in",
+        toast("Welcome", {
+          description: "Account created successfully",
         });
         router.push("/dashboard");
       }
@@ -70,8 +82,87 @@ export function LoginForm({
           description: "The email/password you entered is incorrect",
         });
       }
+      toast(error);
     }
   };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+
+      const completeSignUp = await signUp?.attemptEmailAddressVerification({
+        code: otp,
+      });
+
+      if (completeSignUp?.status !== "complete") {
+        toast("An error occured while verifying OTP", {
+          description: "Please try again",
+        });
+      }
+
+      if (completeSignUp?.status === "complete") {
+        if (!completeSignUp.createdUserId) {
+          return;
+        }
+
+        console.log(completeSignUp.createdUserId);
+        //TODO: Add user to database
+
+        setLoading(false);
+        router.push("/dashboard");
+      }
+
+      // setActive(auth);
+    } catch (error: any) {
+      console.log(error);
+      toast(error.errors[0].message, {
+        description: "Something went wrong!",
+      });
+    }
+  };
+
+  if (otpGenerated) {
+    return (
+      <form
+        className="flex flex-col justify-center items-center gap-6 w-full h-screen"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            handleVerify(e);
+          }
+        }}
+        onSubmit={handleVerify}
+      >
+        <InputOTP
+          maxLength={6}
+          value={otp}
+          onChange={(otp: string) => setOtp(otp)}
+          onSubmit={handleVerify}
+        >
+          <div className="flex gap-3">
+            <div>
+              <InputOTPSlot index={0} />
+            </div>
+            <div>
+              <InputOTPSlot index={1} />
+            </div>
+            <div>
+              <InputOTPSlot index={2} />
+            </div>
+            <div>
+              <InputOTPSlot index={3} />
+            </div>
+            <div>
+              <InputOTPSlot index={4} />
+            </div>
+            <div>
+              <InputOTPSlot index={5} />
+            </div>
+          </div>
+        </InputOTP>
+      </form>
+    );
+  }
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -85,18 +176,27 @@ export function LoginForm({
               <div className="flex size-8 items-center justify-center rounded-md">
                 <GalleryVerticalEnd className="size-6" />
               </div>
-              <span className="sr-only">Acme Inc.</span>
+              <span className="sr-only">Codex</span>
             </a>
-            <h1 className="text-xl font-bold">Welcome to Acme Inc.</h1>
+            <h1 className="text-xl font-bold">Welcome to Codex</h1>
             <div className="text-center text-sm">
-              Don&apos;t have an account?{" "}
-              <a href="/sign-up" className="underline underline-offset-4">
-                Sign up
+              Already have an account?{" "}
+              <a href="/sign-in" className="underline underline-offset-4">
+                Sign in
               </a>
             </div>
           </div>
           <div className="flex flex-col gap-6">
             <div className="grid gap-3">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="Prajwal"
+                required
+                onChange={(e) => setUsername(e.target.value)}
+                value={username}
+              />
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"

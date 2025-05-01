@@ -2,7 +2,7 @@
 
 import { Button } from "components/ui/button";
 import { Play, Upload } from "lucide-react";
-import React, { FormEventHandler, useState } from "react";
+import React from "react";
 import {
   Select,
   SelectContent,
@@ -43,7 +43,8 @@ const TopBar = () => {
       stdout,
       code: outputCode,
     } = await runPracticeCode(code, language);
-    if (outputCode == 0) {
+    console.log(output, stderr, stdout);
+    if (outputCode == 0 || outputCode == null) {
       setOutput(output);
     }
     if (outputCode == 1) {

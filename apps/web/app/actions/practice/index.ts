@@ -14,16 +14,13 @@ export const runPracticeCode = async (
 ): Promise<CodeExecutionResult> => {
   const runtime = LANGUAGE_CONFIG[language]?.pistonRuntime;
   try {
-    const response = await axios.post(
-      `https://emkc.org/api/v2/piston/execute`,
-      {
-        language: language,
-        version: runtime?.version,
-        files: [{ content: code }],
-      }
-    );
+    const response = await axios.post(process.env.PISTON_API!, {
+      language: language,
+      version: runtime?.version,
+      files: [{ content: code }],
+    });
 
-    console.log(response.data);
+    console.log(response.data.run.output);
 
     return {
       output: response.data.run.output || "",
