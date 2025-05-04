@@ -5,9 +5,7 @@ const PromptEditor = () => {
     <div className="h-full p-6 bg-black dark:bg-zinc-950 overflow-auto">
       <h2 className="text-xl font-bold mb-4">Project Documentation</h2>
       <div className="prose dark:prose-invert max-w-none">
-        <p className="mb-4">
-          This is your project workspace. You can:
-        </p>
+        <p className="mb-4">This is your project workspace. You can:</p>
         <ul className="space-y-2">
           <li>Chat with the AI assistant using the chat panel</li>
           <li>Write and test code in the code editor</li>

@@ -1,17 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  File, 
-  Folder, 
-  ChevronRight, 
-  ChevronDown, 
-  Plus, 
-  MoreHorizontal, 
+import {
+  File,
+  Folder,
+  ChevronRight,
+  ChevronDown,
+  Plus,
+  MoreHorizontal,
   PlusCircle,
   FilePlus,
   FolderPlus,
-  Trash2
+  Trash2,
 } from "lucide-react";
 import { cn } from "components/lib/utils";
 
@@ -63,10 +63,12 @@ export const FileTree: React.FC<FileTreeProps> = ({ onFileSelect }) => {
     { id: "12", name: "README.md", type: "file", extension: "md" },
   ]);
 
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
+  const [expandedFolders, setExpandedFolders] = useState<
+    Record<string, boolean>
+  >({
     "1": true, // Expand src by default
   });
-  
+
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -131,7 +133,11 @@ export const FileTree: React.FC<FileTreeProps> = ({ onFileSelect }) => {
           {isFolder ? (
             <>
               <span className="mr-1 text-zinc-400">
-                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                {isExpanded ? (
+                  <ChevronDown size={16} />
+                ) : (
+                  <ChevronRight size={16} />
+                )}
               </span>
               <Folder size={16} className="mr-2 text-zinc-400" />
             </>
@@ -154,7 +160,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ onFileSelect }) => {
   };
 
   return (
-    <div 
+    <div
       className="h-full flex flex-col bg-black text-zinc-300 overflow-auto"
       onClick={handleClickOutside}
     >
@@ -217,25 +223,31 @@ export const FileTree: React.FC<FileTreeProps> = ({ onFileSelect }) => {
 };
 
 // Helper component to show appropriate icon based on file extension
-const FileIcon = ({ fileName, className = "" }: { fileName: string; className?: string }) => {
-  const extension = fileName.split('.').pop()?.toLowerCase() || '';
-  
+const FileIcon = ({
+  fileName,
+  className = "",
+}: {
+  fileName: string;
+  className?: string;
+}) => {
+  const extension = fileName.split(".").pop()?.toLowerCase() || "";
+
   // Return appropriate icon based on file extension
   switch (extension) {
-    case 'js':
+    case "js":
       return <File size={16} className={cn("text-yellow-500", className)} />;
-    case 'ts':
+    case "ts":
       return <File size={16} className={cn("text-blue-500", className)} />;
-    case 'jsx':
-    case 'tsx':
+    case "jsx":
+    case "tsx":
       return <File size={16} className={cn("text-blue-400", className)} />;
-    case 'css':
+    case "css":
       return <File size={16} className={cn("text-cyan-500", className)} />;
-    case 'html':
+    case "html":
       return <File size={16} className={cn("text-orange-500", className)} />;
-    case 'json':
+    case "json":
       return <File size={16} className={cn("text-yellow-300", className)} />;
-    case 'md':
+    case "md":
       return <File size={16} className={cn("text-white", className)} />;
     default:
       return <File size={16} className={cn("text-zinc-400", className)} />;

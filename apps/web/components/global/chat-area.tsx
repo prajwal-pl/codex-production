@@ -33,22 +33,22 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ messages, isLoading }) => {
           )}
         >
           <div className="whitespace-pre-wrap">{message.content}</div>
-          
+
           {/* Display attachments if any */}
           {message.attachments && message.attachments.length > 0 && (
             <div className="mt-2 space-y-2">
               {message.attachments.map((attachment, index) => (
                 <div key={index}>
                   {attachment.type === "image" ? (
-                    <img 
-                      src={attachment.url} 
-                      alt={attachment.name || "Image attachment"} 
+                    <img
+                      src={attachment.url}
+                      alt={attachment.name || "Image attachment"}
                       className="max-h-60 rounded-md mt-2"
                     />
                   ) : attachment.type === "audio" ? (
-                    <audio 
-                      src={attachment.url} 
-                      controls 
+                    <audio
+                      src={attachment.url}
+                      controls
                       className="mt-2 w-full"
                     />
                   ) : (
@@ -63,25 +63,25 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ messages, isLoading }) => {
               ))}
             </div>
           )}
-          
-          <div className={cn(
-            "text-xs mt-1",
-            message.role === "user" 
-              ? "text-zinc-400" 
-              : "text-zinc-500"
-          )}>
+
+          <div
+            className={cn(
+              "text-xs mt-1",
+              message.role === "user" ? "text-zinc-400" : "text-zinc-500"
+            )}
+          >
             {formatTime(message.timestamp)}
           </div>
         </div>
       ))}
-      
+
       {isLoading && (
         <div className="flex items-center space-x-2 text-zinc-500 dark:text-zinc-400">
           <Loader2 className="animate-spin h-4 w-4" />
           <p>AI is thinking...</p>
         </div>
       )}
-      
+
       <div ref={messagesEndRef} />
     </div>
   );

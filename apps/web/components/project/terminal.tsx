@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect } from "react";
 const Terminal = () => {
   const [history, setHistory] = useState<string[]>([
     "Welcome to Codex Terminal",
-    "Type 'help' for available commands"
+    "Type 'help' for available commands",
   ]);
   const [currentInput, setCurrentInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -29,10 +29,10 @@ const Terminal = () => {
   const handleCommand = (cmd: string) => {
     // Add command to history
     const newHistory = [...history, `$ ${cmd}`];
-    
+
     // Process command
     const command = cmd.trim().toLowerCase();
-    
+
     if (command === "") {
       setHistory([...newHistory, ""]);
     } else if (command === "clear") {
@@ -45,13 +45,10 @@ const Terminal = () => {
         "  clear    - Clear terminal",
         "  date     - Show current date and time",
         "  echo     - Echo a message",
-        "  ls       - List files (simulated)"
+        "  ls       - List files (simulated)",
       ]);
     } else if (command === "date") {
-      setHistory([
-        ...newHistory,
-        new Date().toLocaleString()
-      ]);
+      setHistory([...newHistory, new Date().toLocaleString()]);
     } else if (command.startsWith("echo ")) {
       const message = cmd.substring(5);
       setHistory([...newHistory, message]);
@@ -63,17 +60,17 @@ const Terminal = () => {
         "README.md",
         "node_modules/",
         "src/",
-        "public/"
+        "public/",
       ]);
     } else {
       setHistory([
         ...newHistory,
-        `Command not found: ${cmd}. Type 'help' for available commands.`
+        `Command not found: ${cmd}. Type 'help' for available commands.`,
       ]);
     }
 
     // Add to command history for up/down navigation
-    setCommandHistory(prev => [...prev, cmd]);
+    setCommandHistory((prev) => [...prev, cmd]);
     setHistoryIndex(-1);
   };
 
@@ -85,16 +82,23 @@ const Terminal = () => {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       if (commandHistory.length > 0) {
-        const newIndex = historyIndex < commandHistory.length - 1 ? historyIndex + 1 : historyIndex;
+        const newIndex =
+          historyIndex < commandHistory.length - 1
+            ? historyIndex + 1
+            : historyIndex;
         setHistoryIndex(newIndex);
-        setCurrentInput(commandHistory[commandHistory.length - 1 - newIndex] || "");
+        setCurrentInput(
+          commandHistory[commandHistory.length - 1 - newIndex] || ""
+        );
       }
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       if (historyIndex > 0) {
         const newIndex = historyIndex - 1;
         setHistoryIndex(newIndex);
-        setCurrentInput(commandHistory[commandHistory.length - 1 - newIndex] || "");
+        setCurrentInput(
+          commandHistory[commandHistory.length - 1 - newIndex] || ""
+        );
       } else if (historyIndex === 0) {
         setHistoryIndex(-1);
         setCurrentInput("");
@@ -103,7 +107,7 @@ const Terminal = () => {
   };
 
   return (
-    <div 
+    <div
       className="h-full flex flex-col bg-black text-zinc-400 font-mono text-sm p-2"
       onClick={focusInput}
     >
@@ -112,7 +116,7 @@ const Terminal = () => {
         <span className="text-zinc-600">bash</span>
       </div>
 
-      <div 
+      <div
         ref={containerRef}
         className="flex-1 overflow-auto whitespace-pre-wrap"
       >

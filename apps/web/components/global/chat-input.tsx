@@ -8,7 +8,10 @@ interface ChatInputProps {
   isLoading: boolean;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({
+  onSendMessage,
+  isLoading,
+}) => {
   const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -22,7 +25,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() === "" && attachments.length === 0) return;
-    
+
     onSendMessage(message, attachments);
     setMessage("");
     setAttachments([]);
@@ -36,7 +39,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
-      setAttachments(prev => [...prev, ...filesArray]);
+      setAttachments((prev) => [...prev, ...filesArray]);
       // Reset file input so the same file can be selected again
       e.target.value = "";
     }
@@ -69,16 +72,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(recordingChunksRef.current, { type: "audio/webm" });
-        const audioFile = new File([audioBlob], `recording-${Date.now()}.webm`, {
-          type: "audio/webm"
+        const audioBlob = new Blob(recordingChunksRef.current, {
+          type: "audio/webm",
         });
-        
-        setAttachments(prev => [...prev, audioFile]);
-        
+        const audioFile = new File(
+          [audioBlob],
+          `recording-${Date.now()}.webm`,
+          {
+            type: "audio/webm",
+          }
+        );
+
+        setAttachments((prev) => [...prev, audioFile]);
+
         // Stop all tracks on the stream to release the microphone
-        stream.getTracks().forEach(track => track.stop());
-        
+        stream.getTracks().forEach((track) => track.stop());
+
         setIsRecording(false);
         setRecordingTime(0);
         if (recordingTimerRef.current) {
@@ -91,9 +100,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
 
       // Start recording timer
       recordingTimerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        setRecordingTime((prev) => prev + 1);
       }, 1000);
-
     } catch (err) {
       console.error("Error accessing microphone:", err);
       alert("Could not access microphone. Please check permissions.");
@@ -110,7 +118,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
   const formatRecordingTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
   return (
@@ -119,8 +127,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {attachments.map((file, index) => (
-            <div key={index} className="flex items-center gap-1 bg-zinc-900 dark:bg-zinc-800 rounded-full px-2 py-1">
-              <span className="text-xs truncate max-w-[100px]">{file.name}</span>
+            <div
+              key={index}
+              className="flex items-center gap-1 bg-zinc-900 dark:bg-zinc-800 rounded-full px-2 py-1"
+            >
+              <span className="text-xs truncate max-w-[100px]">
+                {file.name}
+              </span>
               <button
                 onClick={() => removeAttachment(index)}
                 className="p-0.5 hover:bg-zinc-800 dark:hover:bg-zinc-700 rounded-full"
@@ -137,7 +150,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
       {isRecording && (
         <div className="flex items-center gap-2 bg-red-950/20 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-2 rounded-md mb-2">
           <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-sm">Recording {formatRecordingTime(recordingTime)}</span>
+          <span className="text-sm">
+            Recording {formatRecordingTime(recordingTime)}
+          </span>
         </div>
       )}
 
@@ -150,7 +165,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSubmit(e);
               }
@@ -185,8 +200,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
             type="button"
             onClick={toggleRecording}
             className={`p-2 rounded-full ${
-              isRecording 
-                ? "bg-red-950/20 text-red-600 dark:bg-red-900/20 dark:text-red-400" 
+              isRecording
+                ? "bg-red-950/20 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                 : "hover:bg-zinc-900 text-zinc-500 dark:hover:bg-zinc-800"
             }`}
             aria-label={isRecording ? "Stop recording" : "Start recording"}
@@ -200,9 +215,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
             type="submit"
             className="p-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white"
             aria-label="Send message"
-            disabled={isLoading || (message.trim() === "" && attachments.length === 0)}
+            disabled={
+              isLoading || (message.trim() === "" && attachments.length === 0)
+            }
           >
-            {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+            {isLoading ? (
+              <Loader2 size={20} className="animate-spin" />
+            ) : (
+              <Send size={20} />
+            )}
           </button>
         </div>
       </form>
