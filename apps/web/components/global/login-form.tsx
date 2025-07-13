@@ -26,19 +26,24 @@ export function LoginForm({
     }
 
     try {
-      const authenticated = await signIn.create({
-        strategy: "oauth_google",
-        redirectUrl: "/dashboard",
-        actionCompleteRedirectUrl: "/dashboard",
-      });
-
-      if (authenticated.status === "complete") {
-        await setActive({ session: authenticated.createdSessionId });
-        toast("Welcome back!", {
-          description: "You have successfully logged in",
+      const authenticated = await signIn
+        .authenticateWithRedirect({
+          strategy: "oauth_google",
+          redirectUrl: "/dashboard",
+          redirectUrlComplete: "/dashboard",
+        })
+        .then(() => {
+          toast.success("Welcome back!", {
+            description: "You have successfully logged in",
+          });
+          router.push("/dashboard");
+        })
+        .catch((err) => {
+          console.error(err);
+          toast.error("Login failed", {
+            description: "Please try again later",
+          });
         });
-        router.push("/dashboard");
-      }
     } catch (error: any) {
       console.error(error);
     }

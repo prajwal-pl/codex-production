@@ -1,3 +1,5 @@
+"use server";
+
 import { LANGUAGE_CONFIG } from "app/utils/constants";
 import axios from "axios";
 
@@ -14,7 +16,7 @@ export const runPracticeCode = async (
 ): Promise<CodeExecutionResult> => {
   const runtime = LANGUAGE_CONFIG[language]?.pistonRuntime;
   try {
-    const response = await axios.post(process.env.PISTON_API!, {
+    const response = await axios.post(process.env.PISTON_API as string, {
       language: language,
       version: runtime?.version,
       files: [{ content: code }],
