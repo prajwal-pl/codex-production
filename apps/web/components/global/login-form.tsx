@@ -26,7 +26,7 @@ export function LoginForm({
     }
 
     try {
-      const authenticated = await signIn
+      await signIn
         .authenticateWithRedirect({
           strategy: "oauth_google",
           redirectUrl: "/dashboard",
