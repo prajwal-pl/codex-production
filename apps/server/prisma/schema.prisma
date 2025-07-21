@@ -1,0 +1,170 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ProjectRole {
+  OWNER
+  MEMBER
+}
+
+enum RunStatus {
+  PENDING
+  SUCCESS
+  ERROR
+  TIMEOUT
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id             String             @id @default(uuid())
+  name           String
+  email          String             @unique
+  passwordHash   String?
+  role           Role               @default(USER)
+  bio            String?
+  resumeUrl      String?
+  githubUrl      String?
+  linkedinUrl    String?
+  stats          Stats?
+  posts          Post[]
+  projects       ProjectMember[]
+  dsaResults     DSAResult[]
+  applications   JobApplication[]
+  jobsPosted     Job[]
+  comments       Comment[]
+  interviewHost  InterviewSession[] @relation("host")
+  interviewGuest InterviewSession[] @relation("guest")
+  createdAt      DateTime           @default(now())
+}
+
+model Stats {
+  id        String @id @default(uuid())
+  userId    String @unique
+  solvedDSA Int
+  projects  Int
+  posts     Int
+  User      User   @relation(fields: [userId], references: [id])
+}
+
+model Project {
+  id          String          @id @default(uuid())
+  title       String
+  description String?
+  createdBy   String
+  isAI        Boolean         @default(false)
+  members     ProjectMember[]
+  files       ProjectFile[]
+  metadata    Json?
+  previewUrl  String?
+  createdAt   DateTime        @default(now())
+}
+
+model ProjectMember {
+  id        String      @id @default(uuid())
+  userId    String
+  projectId String
+  role      ProjectRole @default(MEMBER)
+  User      User        @relation(fields: [userId], references: [id])
+  Project   Project     @relation(fields: [projectId], references: [id])
+}
+
+model ProjectFile {
+  id        String  @id @default(uuid())
+  projectId String
+  path      String // e.g. src/pages/index.js
+  content   String
+  Project   Project @relation(fields: [projectId], references: [id])
+}
+
+model Post {
+  id        String    @id @default(uuid())
+  content   String
+  createdBy String
+  comments  Comment[]
+  createdAt DateTime  @default(now())
+  User      User      @relation(fields: [createdBy], references: [id])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  Post      Post     @relation(fields: [postId], references: [id])
+  User      User     @relation(fields: [userId], references: [id])
+}
+
+model DSAResult {
+  id         String    @id @default(uuid())
+  userId     String
+  code       String
+  language   String
+  output     String?
+  status     RunStatus @default(PENDING)
+  runtime    Int? // ms
+  memoryUsed Int? // KB or MB
+  createdAt  DateTime  @default(now())
+  User       User      @relation(fields: [userId], references: [id])
+}
+
+model InterviewSession {
+  id          String    @id @default(uuid())
+  hostUserId  String
+  guestUserId String?
+  code        String?
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  Host        User      @relation("host", fields: [hostUserId], references: [id])
+  Guest       User?     @relation("guest", fields: [guestUserId], references: [id])
+}
+
+model Job {
+  id           String           @id @default(uuid())
+  title        String
+  company      String
+  description  String
+  tags         String[]
+  postedBy     String
+  createdAt    DateTime         @default(now())
+  postedByUser User             @relation(fields: [postedBy], references: [id])
+  applications JobApplication[]
+}
+
+model JobApplication {
+  id        String            @id @default(uuid())
+  userId    String
+  jobId     String
+  resumeUrl String
+  status    ApplicationStatus @default(PENDING)
+  User      User              @relation(fields: [userId], references: [id])
+  Job       Job               @relation(fields: [jobId], references: [id])
+}
