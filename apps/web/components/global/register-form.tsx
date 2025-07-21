@@ -5,7 +5,6 @@ import { Button } from "components/ui/button";
 import { Input } from "components/ui/input";
 import { Label } from "components/ui/label";
 import { cn } from "../lib/utils";
-import { useSignUp } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -17,7 +16,6 @@ export function RegisterForm({
 }: React.ComponentProps<"div">) {
   const router = useRouter();
 
-  const { signUp, isLoaded, setActive } = useSignUp();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,64 +24,29 @@ export function RegisterForm({
   const [loading, setLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
-    if (!isLoaded) {
-      return;
-    }
-
-    try {
-      const authenticated = await signUp.create({
-        strategy: "oauth_google",
-        redirectUrl: "/dashboard",
-        actionCompleteRedirectUrl: "/dashboard",
-      });
-
-      if (authenticated.status === "complete") {
-        await setActive({ session: authenticated.createdSessionId });
-        toast("Welcome back!", {
-          description: "You have successfully logged in",
-        });
-        router.push("/dashboard");
-      }
-    } catch (error: any) {
-      console.error(error);
-    }
+    toast.success("Google Sign Up clicked", {
+      description: "This would normally redirect to Google OAuth",
+    });
+    // Mock redirect to dashboard
+    router.push("/dashboard");
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLoaded) {
+
+    // Simple validation
+    if (!username || !email || !password) {
+      toast.error("Invalid input", {
+        description: "Please fill all required fields",
+      });
       return;
     }
 
-    try {
-      const authenticated = await signUp.create({
-        username: username,
-        emailAddress: email,
-        password: password,
-      });
-
-      signUp.prepareEmailAddressVerification({
-        strategy: "email_code",
-      });
-
-      setOtpGenerated(true);
-
-      if (authenticated.status === "complete") {
-        await setActive({ session: authenticated.createdSessionId });
-        toast("Welcome", {
-          description: "Account created successfully",
-        });
-        router.push("/dashboard");
-      }
-    } catch (error: any) {
-      console.error(error);
-      if (error.errors[0].code === "form_password_incorrect") {
-        toast("Invalid Credentials", {
-          description: "The email/password you entered is incorrect",
-        });
-      }
-      toast(error);
-    }
+    // Mock OTP generation
+    setOtpGenerated(true);
+    toast.success("Verification code sent", {
+      description: "Please check your email for the verification code",
+    });
   };
 
   const handleVerify = async (e: React.FormEvent) => {
@@ -91,34 +54,29 @@ export function RegisterForm({
     try {
       setLoading(true);
 
-      const completeSignUp = await signUp?.attemptEmailAddressVerification({
-        code: otp,
-      });
-
-      if (completeSignUp?.status !== "complete") {
-        toast("An error occured while verifying OTP", {
-          description: "Please try again",
+      // Simple validation
+      if (otp.length < 6) {
+        toast.error("Invalid OTP", {
+          description: "Please enter a valid verification code",
         });
-      }
-
-      if (completeSignUp?.status === "complete") {
-        if (!completeSignUp.createdUserId) {
-          return;
-        }
-
-        console.log(completeSignUp.createdUserId);
-        //TODO: Add user to database
-
         setLoading(false);
-        router.push("/dashboard");
+        return;
       }
 
-      // setActive(auth);
-    } catch (error: any) {
-      console.log(error);
-      toast(error.errors[0].message, {
-        description: "Something went wrong!",
+      // Mock successful verification
+      setTimeout(() => {
+        setLoading(false);
+        toast.success("Account created successfully", {
+          description: "Welcome to our platform",
+        });
+        router.push("/dashboard");
+      }, 1500);
+    } catch (error) {
+      setLoading(false);
+      toast.error("Verification failed", {
+        description: "Please try again",
       });
+      console.error(error);
     }
   };
 

@@ -41,7 +41,7 @@ const ProjectEditor = () => {
                 />
               </ResizablePanel>
 
-              <ResizableHandle withHandle />
+              <ResizableHandle />
 
               <ResizablePanel defaultSize={50} minSize={15} maxSize={85}>
                 <ChatInterface />
@@ -50,7 +50,7 @@ const ProjectEditor = () => {
           </div>
         </ResizablePanel>
 
-        <ResizableHandle withHandle />
+        <ResizableHandle />
 
         {/* Code editor panel */}
         <ResizablePanel defaultSize={40} minSize={30} maxSize={60}>
@@ -59,7 +59,7 @@ const ProjectEditor = () => {
           </div>
         </ResizablePanel>
 
-        <ResizableHandle withHandle />
+        <ResizableHandle />
 
         {/* Right panel with Output and Terminal */}
         <ResizablePanel defaultSize={35} minSize={20} maxSize={45}>
@@ -69,7 +69,7 @@ const ProjectEditor = () => {
                 <OutputPanel />
               </ResizablePanel>
 
-              <ResizableHandle withHandle />
+              <ResizableHandle />
 
               <ResizablePanel defaultSize={50}>
                 <Terminal />

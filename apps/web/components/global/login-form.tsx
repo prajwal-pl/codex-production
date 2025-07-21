@@ -5,7 +5,6 @@ import { Button } from "components/ui/button";
 import { Input } from "components/ui/input";
 import { Label } from "components/ui/label";
 import { cn } from "../lib/utils";
-import { useSignIn } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -15,67 +14,33 @@ export function LoginForm({
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter();
-
-  const { signIn, isLoaded, setActive } = useSignIn();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleGoogleSignIn = async () => {
-    if (!isLoaded) {
-      return;
-    }
-
-    try {
-      await signIn
-        .authenticateWithRedirect({
-          strategy: "oauth_google",
-          redirectUrl: "/dashboard",
-          redirectUrlComplete: "/dashboard",
-        })
-        .then(() => {
-          toast.success("Welcome back!", {
-            description: "You have successfully logged in",
-          });
-          router.push("/dashboard");
-        })
-        .catch((err) => {
-          console.error(err);
-          toast.error("Login failed", {
-            description: "Please try again later",
-          });
-        });
-    } catch (error: any) {
-      console.error(error);
-    }
+    toast.success("Google Sign In clicked", {
+      description: "This would normally redirect to Google OAuth",
+    });
+    // Mock redirect to dashboard
+    router.push("/dashboard");
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLoaded) {
+
+    // Simple validation
+    if (!email || !password) {
+      toast.error("Invalid input", {
+        description: "Please enter both email and password",
+      });
       return;
     }
 
-    try {
-      const authenticated = await signIn.create({
-        identifier: email,
-        password: password,
-      });
-
-      if (authenticated.status === "complete") {
-        await setActive({ session: authenticated.createdSessionId });
-        toast("Welcome back!", {
-          description: "You have successfully logged in",
-        });
-        router.push("/dashboard");
-      }
-    } catch (error: any) {
-      console.error(error);
-      if (error.errors[0].code === "form_password_incorrect") {
-        toast("Invalid Credentials", {
-          description: "The email/password you entered is incorrect",
-        });
-      }
-    }
+    // Mock successful login
+    toast.success("Welcome back!", {
+      description: "You have successfully logged in",
+    });
+    router.push("/dashboard");
   };
 
   return (

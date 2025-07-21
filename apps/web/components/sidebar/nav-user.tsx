@@ -25,7 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "components/ui/sidebar";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 export function NavUser({
   user,
@@ -37,8 +37,12 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
-  const { user: userData } = useUser();
-  const { signOut } = useAuth();
+  const router = useRouter();
+
+  const handleSignOut = () => {
+    // Mock sign out functionality
+    router.push("/sign-in");
+  };
 
   return (
     <SidebarMenu>
@@ -50,21 +54,16 @@ export function NavUser({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage
-                  src={user.avatar}
-                  alt={userData?.username || "John Doe"}
-                />
+                <AvatarImage src={user.avatar} alt={user.name || "John Doe"} />
                 <AvatarFallback className="rounded-lg">
-                  {userData?.username?.charAt(0).toUpperCase() || "JD"}
+                  {user.name?.charAt(0).toUpperCase() || "JD"}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">
-                  {userData?.username || "John Doe"}
+                  {user.name || "John Doe"}
                 </span>
-                <span className="truncate text-xs">
-                  {userData?.primaryEmailAddress?.emailAddress}
-                </span>
+                <span className="truncate text-xs">{user.email}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -80,16 +79,12 @@ export function NavUser({
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
                   <AvatarFallback className="rounded-lg">
-                    {userData?.username?.charAt(0).toUpperCase() || "JD"}
+                    {user.name?.charAt(0).toUpperCase() || "JD"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
-                    {userData?.username}
-                  </span>
-                  <span className="truncate text-xs">
-                    {userData?.primaryEmailAddress?.emailAddress}
-                  </span>
+                  <span className="truncate font-semibold">{user.name}</span>
+                  <span className="truncate text-xs">{user.email}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
@@ -117,11 +112,7 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() =>
-                signOut({
-                  redirectUrl: "/sign-in",
-                })
-              }
+              onClick={handleSignOut}
               className="cursor-pointer"
             >
               <LogOut />
