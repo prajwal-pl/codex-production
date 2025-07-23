@@ -1,9 +1,17 @@
 import express from "express";
-import { loginHandler, registerHandler } from "../controllers/auth.controller";
+import {
+  googleCallbackHandler,
+  googleOAuthHandler,
+  loginHandler,
+  registerHandler,
+} from "../controllers/auth.controller";
 
 const router = express.Router();
 
 router.post("/register", registerHandler);
 router.post("/login", loginHandler);
+
+router.get("/google/oauth", googleOAuthHandler);
+router.get("/google/callback", googleCallbackHandler);
 
 export default router;
