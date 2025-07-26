@@ -6,17 +6,12 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-}
-
-enum Role {
-  USER
-  ADMIN
 }
 
 enum ProjectRole {
@@ -44,25 +39,26 @@ enum ApplicationStatus {
 }
 
 model User {
-  id             String             @id @default(uuid())
-  name           String
-  email          String             @unique
-  passwordHash   String?
-  role           Role               @default(USER)
-  bio            String?
-  resumeUrl      String?
-  githubUrl      String?
-  linkedinUrl    String?
-  stats          Stats?
-  posts          Post[]
-  projects       ProjectMember[]
-  dsaResults     DSAResult[]
-  applications   JobApplication[]
-  jobsPosted     Job[]
-  comments       Comment[]
-  interviewHost  InterviewSession[] @relation("host")
-  interviewGuest InterviewSession[] @relation("guest")
-  createdAt      DateTime           @default(now())
+  id               String             @id @default(uuid())
+  name             String
+  email            String             @unique
+  passwordHash     String?
+  bio              String?
+  resumeUrl        String?
+  githubUrl        String?
+  linkedinUrl      String?
+  stats            Stats?
+  posts            Post[]
+  projects         Project[]
+  projectTeammates ProjectMember[]
+  dsaResults       DSAResult[]
+  applications     JobApplication[]
+  jobsPosted       Job[]
+  comments         Comment[]
+  interviewHost    InterviewSession[] @relation("host")
+  interviewGuest   InterviewSession[] @relation("guest")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 }
 
 model Stats {
@@ -78,13 +74,13 @@ model Project {
   id          String          @id @default(uuid())
   title       String
   description String?
-  createdBy   String
-  isAI        Boolean         @default(false)
+  prompt      String?
   members     ProjectMember[]
-  files       ProjectFile[]
-  metadata    Json?
-  previewUrl  String?
+  content     String // JSON or structured data for project details
+  userId      String
+  User        User            @relation(fields: [userId], references: [id])
   createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 }
 
 model ProjectMember {
@@ -94,14 +90,6 @@ model ProjectMember {
   role      ProjectRole @default(MEMBER)
   User      User        @relation(fields: [userId], references: [id])
   Project   Project     @relation(fields: [projectId], references: [id])
-}
-
-model ProjectFile {
-  id        String  @id @default(uuid())
-  projectId String
-  path      String // e.g. src/pages/index.js
-  content   String
-  Project   Project @relation(fields: [projectId], references: [id])
 }
 
 model Post {
@@ -124,16 +112,14 @@ model Comment {
 }
 
 model DSAResult {
-  id         String    @id @default(uuid())
-  userId     String
-  code       String
-  language   String
-  output     String?
-  status     RunStatus @default(PENDING)
-  runtime    Int? // ms
-  memoryUsed Int? // KB or MB
-  createdAt  DateTime  @default(now())
-  User       User      @relation(fields: [userId], references: [id])
+  id        String    @id @default(uuid())
+  userId    String
+  code      String
+  language  String
+  output    String?
+  status    RunStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+  User      User      @relation(fields: [userId], references: [id])
 }
 
 model InterviewSession {
