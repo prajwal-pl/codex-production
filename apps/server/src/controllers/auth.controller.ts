@@ -3,7 +3,7 @@ import { PrismaClient } from "../generated/prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import axios from "axios";
-import prisma from "db/index";
+import prisma from "@repo/db";
 
 export const registerHandler = async (req: Request, res: Response) => {
   const { email, password, name } = req.body;

@@ -1,6 +1,6 @@
 import express from "express";
 import { createProjectHandler } from "../controllers/project.controller";
-import { authMiddleware } from "common/src/middleware";
+import { authMiddleware } from "@repo/common/src";
 
 const router = express.Router();
 

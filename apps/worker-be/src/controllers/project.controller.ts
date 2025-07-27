@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { CoreMessage, streamText } from "ai";
 import { groq } from "@ai-sdk/groq";
-import prisma from "db/index";
+import prisma from "@repo/db";
 import { getSystemPrompt } from "../lib/systemPrompt";
 
 export const createProjectHandler = async (req: Request, res: Response) => {
