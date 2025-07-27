@@ -20,6 +20,7 @@
   "workspaces": [
     "apps/*",
     "apps/worker-be",
-    "packages/*"
+    "packages/*",
+    "packages/common"
   ]
 }

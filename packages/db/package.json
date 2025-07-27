@@ -7,7 +7,7 @@
     "build": "tsc"
   },
   "exports": {
-    "./client": "./index.ts"
+    "./index": "./index.ts"
   },
   "keywords": [],
   "author": "",

@@ -1,44 +1,124 @@
 import { Request, Response } from "express";
-import Groq from "groq-sdk";
+import { CoreMessage, streamText } from "ai";
+import { groq } from "@ai-sdk/groq";
 import prisma from "db/index";
 import { getSystemPrompt } from "../lib/systemPrompt";
 
-const groq = new Groq({
-  apiKey: "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",
-});
-
-const groqClient = new Groq({
-  apiKey: "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",
-});
-
-console.log(process.env.GROQ_API_KEY!, "GROQ API KEY");
-
 export const createProjectHandler = async (req: Request, res: Response) => {
-  const { prompt } = req.body;
+  const { prompt, projectId } = req.body;
   try {
-    const response = await groq.chat.completions.create({
-      messages: [
-        { role: "assistant", content: getSystemPrompt() },
-        { role: "user", content: prompt },
-      ],
-      model: "llama-3.3-70b-versatile",
-      stream: true,
-    });
+    const messages: CoreMessage[] = [];
 
-    for await (const chunk of response) {
-      if (chunk.choices[0].delta.content) {
-        console.log(`${chunk.choices[0].delta.content}`);
-        res.write(
-          chunk.choices[0].delta.content.replace(/^\s+|\s+$/g, "") + "\n"
-        );
-      }
+    if (projectId) {
+      const existingPrompts = await prisma.prompt.findMany({
+        where: { projectId },
+        orderBy: { createdAt: "asc" },
+      });
+
+      existingPrompts.forEach((p) => {
+        messages.push({
+          role: p.role.toLowerCase() as "user" | "assistant",
+          content: p.content,
+        });
+      });
     }
 
-    // console.log(response.choices[0].message.content);
-    // return res.status(200).json({
-    //   message: "Project created successfully",
-    //   project: response.choices[0].message.content,
-    // });
+    messages.push(
+      {
+        role: "system",
+        content: getSystemPrompt(),
+      },
+      {
+        role: "user",
+        content: prompt,
+      }
+    );
+
+    const response = streamText({
+      model: groq("llama-3.3-70b-versatile"),
+      messages,
+    });
+
+    let fullResponse = "";
+    for await (const chunk of response.textStream) {
+      fullResponse += chunk;
+      console.log(chunk);
+    }
+
+    console.log(fullResponse);
+
+    let currentProjectId;
+
+    if (!projectId) {
+      const newProject = await prisma.project.create({
+        data: {
+          title: "New Project",
+          description: "Automatically created project",
+          content: fullResponse,
+          userId: req.user.id,
+        },
+      });
+
+      currentProjectId = newProject.id;
+
+      const promptData = await prisma.prompt.createMany({
+        data: [
+          {
+            content: fullResponse,
+            role: "ASSISTANT",
+            projectId: currentProjectId,
+            createdBy: req.user.id,
+          },
+          {
+            content: prompt,
+            role: "USER",
+            projectId: currentProjectId,
+            createdBy: req.user.id,
+          },
+        ],
+        skipDuplicates: true,
+      });
+
+      res.status(201).json({
+        projectId: currentProjectId,
+        message: "Project created successfully",
+        content: fullResponse,
+      });
+    }
+
+    await prisma.project.update({
+      where: {
+        id: projectId,
+        userId: req.user.id,
+      },
+      data: {
+        content: fullResponse,
+      },
+    });
+
+    await prisma.prompt.createMany({
+      data: [
+        {
+          content: fullResponse,
+          role: "ASSISTANT",
+          projectId: projectId,
+          createdBy: req.user.id,
+        },
+        {
+          content: prompt,
+          role: "USER",
+          projectId: projectId,
+          createdBy: req.user.id,
+        },
+      ],
+      skipDuplicates: true,
+    });
+
+    res.status(200).json({
+      projectId: projectId,
+      message: "Project retrieved successfully",
+      content: fullResponse,
+    });
   } catch (error) {
     console.log(error);
     res.status(500).json({
