@@ -55,7 +55,7 @@ export const createProjectHandler = async (req: Request, res: Response) => {
           title: "New Project",
           description: "Automatically created project",
           content: fullResponse,
-          userId: req.user.id,
+          userId: req.userId!,
         },
       });
 
@@ -67,13 +67,13 @@ export const createProjectHandler = async (req: Request, res: Response) => {
             content: fullResponse,
             role: "ASSISTANT",
             projectId: currentProjectId,
-            createdBy: req.user.id,
+            createdBy: req.userId!,
           },
           {
             content: prompt,
             role: "USER",
             projectId: currentProjectId,
-            createdBy: req.user.id,
+            createdBy: req.userId!,
           },
         ],
         skipDuplicates: true,
@@ -89,7 +89,7 @@ export const createProjectHandler = async (req: Request, res: Response) => {
     await prisma.project.update({
       where: {
         id: projectId,
-        userId: req.user.id,
+        userId: req.userId,
       },
       data: {
         content: fullResponse,
@@ -102,13 +102,13 @@ export const createProjectHandler = async (req: Request, res: Response) => {
           content: fullResponse,
           role: "ASSISTANT",
           projectId: projectId,
-          createdBy: req.user.id,
+          createdBy: req.userId!,
         },
         {
           content: prompt,
           role: "USER",
           projectId: projectId,
-          createdBy: req.user.id,
+          createdBy: req.userId!,
         },
       ],
       skipDuplicates: true,

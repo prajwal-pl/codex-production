@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -7,7 +7,7 @@ dotenv.config();
 declare global {
   namespace Express {
     interface Request {
-      user?: any; // Define the user type as needed
+      userId?: string; // Define the user type as needed
     }
   }
 }
@@ -24,8 +24,8 @@ export const authMiddleware = async (
     return res.status(401).json({ message: "Unauthorized" });
   }
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
-    req.user = decoded; // Assuming the decoded token contains user info
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+    req.userId = decoded.userId;
     next();
   } catch (error) {
     console.log(error);
