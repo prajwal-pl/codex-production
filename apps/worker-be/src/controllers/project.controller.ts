@@ -15,37 +15,55 @@ export const createProjectHandler = async (req: Request, res: Response) => {
         orderBy: { createdAt: "asc" },
       });
 
-      existingPrompts.forEach((p) => {
-        messages.push({
-          role: p.role.toLowerCase() as "user" | "assistant",
-          content: p.content,
-        });
-      });
+      existingPrompts &&
+        existingPrompts
+          .filter((p) => p.content && p.content.trim() !== "")
+          .forEach((p) => {
+            messages.push({
+              role: p.role.toLowerCase() as "user" | "assistant",
+              content: p.content,
+            });
+          });
     }
 
     messages.push(
-      {
-        role: "system",
-        content: getSystemPrompt(),
-      },
+      // {
+      //   role: "system",
+      //   content: getSystemPrompt(),
+      // },
       {
         role: "user",
         content: prompt,
       }
     );
 
+    console.log("Final messages array:");
+    messages.forEach((msg, i) => {
+      const contentPreview =
+        typeof msg.content === "string"
+          ? msg.content.substring(0, 100)
+          : JSON.stringify(msg.content).substring(0, 100);
+      console.log(`${i}: ${msg.role} - ${contentPreview}...`);
+    });
+
     const response = streamText({
       model: groq("llama-3.3-70b-versatile"),
       messages,
+      system: getSystemPrompt(),
     });
 
     let fullResponse = "";
     for await (const chunk of response.textStream) {
       fullResponse += chunk;
-      console.log(chunk);
     }
 
-    console.log(fullResponse);
+    if (!fullResponse || fullResponse.trim() === "") {
+      console.log("WARNING: fullResponse is empty!");
+      return res.status(500).json({
+        message: "AI response was empty",
+        debug: { prompt, messages },
+      });
+    }
 
     let currentProjectId;
 
@@ -61,25 +79,24 @@ export const createProjectHandler = async (req: Request, res: Response) => {
 
       currentProjectId = newProject.id;
 
-      const promptData = await prisma.prompt.createMany({
-        data: [
-          {
-            content: fullResponse,
-            role: "ASSISTANT",
-            projectId: currentProjectId,
-            createdBy: req.userId!,
-          },
-          {
-            content: prompt,
-            role: "USER",
-            projectId: currentProjectId,
-            createdBy: req.userId!,
-          },
-        ],
-        skipDuplicates: true,
+      await prisma.prompt.create({
+        data: {
+          content: prompt,
+          role: "USER",
+          projectId: currentProjectId,
+          createdBy: req.userId!,
+        },
+      });
+      await prisma.prompt.create({
+        data: {
+          content: fullResponse,
+          role: "ASSISTANT",
+          projectId: currentProjectId,
+          createdBy: req.userId!,
+        },
       });
 
-      res.status(201).json({
+      return res.status(201).json({
         projectId: currentProjectId,
         message: "Project created successfully",
         content: fullResponse,
@@ -96,32 +113,31 @@ export const createProjectHandler = async (req: Request, res: Response) => {
       },
     });
 
-    await prisma.prompt.createMany({
-      data: [
-        {
-          content: fullResponse,
-          role: "ASSISTANT",
-          projectId: projectId,
-          createdBy: req.userId!,
-        },
-        {
-          content: prompt,
-          role: "USER",
-          projectId: projectId,
-          createdBy: req.userId!,
-        },
-      ],
-      skipDuplicates: true,
+    await prisma.prompt.create({
+      data: {
+        content: prompt,
+        role: "USER",
+        projectId: projectId,
+        createdBy: req.userId!,
+      },
+    });
+    await prisma.prompt.create({
+      data: {
+        content: fullResponse,
+        role: "ASSISTANT",
+        projectId: projectId,
+        createdBy: req.userId!,
+      },
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       projectId: projectId,
       message: "Project retrieved successfully",
       content: fullResponse,
     });
   } catch (error) {
     console.log(error);
-    res.status(500).json({
+    return res.status(500).json({
       message: "Internal server error",
       error: error instanceof Error ? error.message : "Unknown error",
     });
