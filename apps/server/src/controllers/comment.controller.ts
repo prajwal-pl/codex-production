@@ -13,9 +13,12 @@ export const getAllCommentsHandler = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Post ID is required." });
     }
 
-    const comments = await prisma.comment.findMany({
+    const comments = await prisma.post.findMany({
       where: {
-        postId: id,
+        id,
+      },
+      select: {
+        comments: true,
       },
     });
 
@@ -53,11 +56,17 @@ export const postCommentHandler = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Comment content is required." });
     }
 
-    const newComment = await prisma.comment.create({
+    const newComment = await prisma.post.update({
+      where: {
+        id,
+      },
       data: {
-        content,
-        authorId: userId,
-        postId: id,
+        comments: {
+          create: {
+            content,
+            authorId: userId,
+          },
+        },
       },
     });
 
