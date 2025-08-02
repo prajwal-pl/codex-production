@@ -60,10 +60,13 @@ model User {
   applications     JobApplication[]
   jobsPosted       Job[]
   comments         Comment[]
+  messagesSent     Message[]          @relation("UserMessages")
+  messageReads     MessageRead[]
   interviewHost    InterviewSession[] @relation("host")
   interviewGuest   InterviewSession[] @relation("guest")
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+  ChatParticipant  ChatParticipant[]
 }
 
 model Stats {
@@ -92,6 +95,7 @@ model Prompt {
   id        String     @id @default(uuid())
   role      PromptRole
   content   String
+  createdBy String
   createdAt DateTime   @default(now())
   projectId String
   project   Project    @relation(fields: [projectId], references: [id])
@@ -107,22 +111,72 @@ model ProjectMember {
 }
 
 model Post {
-  id        String    @id @default(uuid())
+  id        String   @id @default(cuid())
+  title     String
   content   String
-  createdBy String
-  comments  Comment[]
-  createdAt DateTime  @default(now())
-  User      User      @relation(fields: [createdBy], references: [id])
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isFlagged Boolean  @default(false)
+
+  author   User      @relation(fields: [authorId], references: [id])
+  comments Comment[]
 }
 
 model Comment {
-  id        String   @id @default(uuid())
-  postId    String
-  userId    String
+  id        String   @id @default(cuid())
   content   String
+  postId    String
+  authorId  String
   createdAt DateTime @default(now())
-  Post      Post     @relation(fields: [postId], references: [id])
-  User      User     @relation(fields: [userId], references: [id])
+
+  post   Post @relation(fields: [postId], references: [id])
+  author User @relation(fields: [authorId], references: [id])
+}
+
+model ChatRoom {
+  id        String            @id @default(cuid())
+  name      String?
+  isGroup   Boolean           @default(false)
+  members   ChatParticipant[]
+  messages  Message[]
+  createdAt DateTime          @default(now())
+}
+
+model ChatParticipant {
+  id         String @id @default(cuid())
+  chatRoomId String
+  userId     String
+
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([chatRoomId, userId])
+}
+
+model Message {
+  id         String      @id @default(cuid())
+  chatRoomId String
+  senderId   String
+  content    String
+  type       MessageType @default(TEXT)
+  sentAt     DateTime    @default(now())
+
+  sender   User          @relation("UserMessages", fields: [senderId], references: [id])
+  chatRoom ChatRoom      @relation(fields: [chatRoomId], references: [id])
+  readers  MessageRead[]
+}
+
+model MessageRead {
+  id        String   @id @default(cuid())
+  userId    String
+  messageId String
+  readAt    DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@unique([userId, messageId])
 }
 
 model DSAResult {
@@ -167,4 +221,11 @@ model JobApplication {
   status    ApplicationStatus @default(PENDING)
   User      User              @relation(fields: [userId], references: [id])
   Job       Job               @relation(fields: [jobId], references: [id])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  LINK
 }

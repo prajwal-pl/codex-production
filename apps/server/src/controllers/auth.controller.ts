@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "../generated/prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import axios from "axios";
