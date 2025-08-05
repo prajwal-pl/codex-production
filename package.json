@@ -20,6 +20,7 @@
   "workspaces": [
     "apps/*",
     "apps/worker-be",
+    "apps/chat-server",
     "packages/*",
     "packages/common"
   ]
