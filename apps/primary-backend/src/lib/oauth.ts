@@ -16,9 +16,6 @@ export const oauth2Client = new OAuth2Client({
 export function getGoogleAuthUrl() {
   const scopes = ["openid", "email", "profile"];
 
-  console.log("Client id", clientId);
-  console.log("Client secret", clientSecret);
-
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",

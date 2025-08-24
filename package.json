@@ -23,8 +23,6 @@
   "packageManager": "npm@10.9.3",
   "workspaces": [
     "apps/*",
-    "apps/worker-backend",
-    "apps/websocket-backend",
     "packages/*"
   ],
   "dependencies": {

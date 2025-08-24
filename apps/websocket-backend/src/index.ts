@@ -9,7 +9,7 @@ import { getOrCreateRoom } from "./rooms.js";
 
 dotenv.config();
 
-const port = process.env.PORT || 443;
+const port = process.env.PORT || 4646;
 
 const wss = new WebSocketServer({ port: Number(port) });
 

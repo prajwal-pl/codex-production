@@ -1,4 +1,4 @@
-import jwt, { type JwtPayload, verify } from "jsonwebtoken";
+import jwt, { type JwtPayload } from "jsonwebtoken";
 
 export function validateUser(token: string): string | null {
   try {

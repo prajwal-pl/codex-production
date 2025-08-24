@@ -120,7 +120,6 @@ export const googleAuthHandler = async (req: Request, res: Response) => {
 
 export const googleCallbackHandler = async (req: Request, res: Response) => {
   try {
-    console.log("Callback url hit with data:", req.query);
     const { code } = req.query;
 
     if (!code) {
@@ -132,8 +131,6 @@ export const googleCallbackHandler = async (req: Request, res: Response) => {
     const { tokens } = await oauth2Client.getToken(code as string);
     const idToken = tokens.id_token;
 
-    console.log("Google Id Token:", idToken);
-
     if (!idToken)
       return res.status(400).json({ message: "Id Token not found" });
 
@@ -143,8 +140,6 @@ export const googleCallbackHandler = async (req: Request, res: Response) => {
     });
 
     const payload = ticket.getPayload();
-
-    console.log("Google OAuth Payload:", payload);
 
     const name = payload?.name || payload?.given_name || "Google User";
     const email = payload?.email || "No email provided";
