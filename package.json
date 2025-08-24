@@ -26,5 +26,8 @@
     "apps/worker-backend",
     "apps/websocket-backend",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "google-auth-library": "^10.2.1"
+  }
 }

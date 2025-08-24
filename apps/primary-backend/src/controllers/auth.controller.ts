@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import prisma from "@repo/db/client";
+import { getGoogleAuthUrl, oauth2Client } from "../lib/oauth.js";
 
 export const registerHandler = async (req: Request, res: Response) => {
   const { email, password, name } = req.body;
@@ -104,29 +105,12 @@ export const loginHandler = async (req: Request, res: Response) => {
   }
 };
 
-export const googleOAuthHandler = async (req: Request, res: Response) => {
+export const googleAuthHandler = async (req: Request, res: Response) => {
   try {
-    const some_state = "some_state";
-    const GOOGLE_OAUTH_SCOPES = [
-      "https%3A//www.googleapis.com/auth/userinfo.email",
-
-      "https%3A//www.googleapis.com/auth/userinfo.profile",
-    ];
-    const GOOGLE_OAUTH_URL = process.env.GOOGLE_OAUTH_URL;
-
-    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-
-    const GOOGLE_CALLBACK_URL = `${process.env.BASE_URL}/api/auth/google/callback`;
-
-    const scopes = GOOGLE_OAUTH_SCOPES.join(" ");
-
-    const GOOGLE_CONSENT_SCREEN_URL = `${GOOGLE_OAUTH_URL}?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${GOOGLE_CALLBACK_URL}&response_type=code&scope=${scopes}&state=${some_state}`;
-
-    console.log(GOOGLE_CONSENT_SCREEN_URL);
-
-    res.redirect(GOOGLE_CONSENT_SCREEN_URL);
+    const url = getGoogleAuthUrl();
+    res.redirect(url);
   } catch (error) {
-    console.error("Error during Google OAuth:", error);
+    console.log(error);
     res.status(500).json({
       message: "Internal server error",
       error: error instanceof Error ? error.message : "Unknown error",
@@ -145,41 +129,54 @@ export const googleCallbackHandler = async (req: Request, res: Response) => {
         .json({ message: "Authorization code is required." });
     }
 
-    const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+    const { tokens } = await oauth2Client.getToken(code as string);
+    const idToken = tokens.id_token;
 
-    const GOOGLE_ACCESS_TOKEN_URL = process.env.GOOGLE_ACCESS_TOKEN_URL;
+    console.log("Google Id Token:", idToken);
 
-    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+    if (!idToken)
+      return res.status(400).json({ message: "Id Token not found" });
 
-    const data = {
-      code: code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: `${process.env.BASE_URL}/api/auth/google/callback`,
-      grant_type: "authorization_code",
-    };
+    const ticket = await oauth2Client.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID!,
+    });
 
-    const response = await axios.post(
-      GOOGLE_ACCESS_TOKEN_URL!,
-      JSON.stringify(data)
-    );
+    const payload = ticket.getPayload();
 
-    const { id_token } = response.data;
+    console.log("Google OAuth Payload:", payload);
 
-    console.log("Google Id Token:", id_token);
+    const name = payload?.name || payload?.given_name || "Google User";
+    const email = payload?.email || "No email provided";
+    const googleId = payload?.sub || "No Google ID provided";
 
-    const token_info_response = await fetch(
-      `${process.env.GOOGLE_TOKEN_INFO_URL}?id_token=${id_token}`
-    );
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: {
+        name,
+        email,
+        passwordHash: `gid_${googleId}`,
+      },
+      create: {
+        name,
+        email,
+        passwordHash: `gid_${googleId}`,
+      },
+    });
 
-    res
-      .status(token_info_response.status)
-      .json(await token_info_response.json());
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, {
+      expiresIn: "7d",
+    });
+
+    const frontend = process.env.FRONTEND_URL || "http://localhost:3000";
+    const url = new URL("/auth/callback", frontend);
+    url.searchParams.set("token", token);
+    res.redirect(302, url.toString());
   } catch (error) {
     console.error("Error during Google OAuth callback:", error);
-    res.status(500).json({
-      message: "Internal server error",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    const frontend = process.env.FRONTEND_URL || "http://localhost:3000";
+    const url = new URL("/auth/login", frontend);
+    url.searchParams.set("oauth", "failed");
+    return res.redirect(302, url.toString());
   }
 };

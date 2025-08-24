@@ -2,15 +2,18 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
+dotenv.config();
+
 import authRoutes from "./routes/auth.route.js";
 import practiceRoutes from "./routes/practice.route.js";
 import commentRoutes from "./routes/comment.route.js";
 import postRoutes from "./routes/post.route.js";
 
-dotenv.config();
-
 const app = express();
 const port = process.env.PORT || 5000;
+
+// console.log("client secret", process.env.GOOGLE_CLIENT_SECRET);
+// console.log("client id", process.env.GOOGLE_CLIENT_ID);
 
 app.use(cors());
 app.use(express.json());
