@@ -1,0 +1,25 @@
+{
+  "name": "worker-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@ai-sdk/groq": "^2.0.14",
+    "ai": "^5.0.22"
+  },
+  "devDependencies": {
+    "@repo/db": "*",
+    "@repo/common": "*",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

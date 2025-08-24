@@ -1,0 +1,17 @@
+{
+  "name": "@repo/common",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc"
+  },
+  "exports": {
+    "./middleware": "./index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

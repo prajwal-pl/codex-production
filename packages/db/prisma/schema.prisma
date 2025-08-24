@@ -1,0 +1,231 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectRole {
+  OWNER
+  MEMBER
+}
+
+enum RunStatus {
+  PENDING
+  SUCCESS
+  ERROR
+  TIMEOUT
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum PromptRole {
+  USER
+  ASSISTANT
+}
+
+model User {
+  id               String             @id @default(uuid())
+  name             String
+  email            String             @unique
+  passwordHash     String?
+  bio              String?
+  resumeUrl        String?
+  githubUrl        String?
+  linkedinUrl      String?
+  stats            Stats?
+  posts            Post[]
+  projects         Project[]
+  projectTeammates ProjectMember[]
+  dsaResults       DSAResult[]
+  applications     JobApplication[]
+  jobsPosted       Job[]
+  comments         Comment[]
+  messagesSent     Message[]          @relation("UserMessages")
+  messageReads     MessageRead[]
+  interviewHost    InterviewSession[] @relation("host")
+  interviewGuest   InterviewSession[] @relation("guest")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  ChatParticipant  ChatParticipant[]
+}
+
+model Stats {
+  id        String @id @default(uuid())
+  userId    String @unique
+  solvedDSA Int
+  projects  Int
+  posts     Int
+  User      User   @relation(fields: [userId], references: [id])
+}
+
+model Project {
+  id          String          @id @default(uuid())
+  title       String
+  description String?
+  prompt      Prompt[]
+  members     ProjectMember[]
+  content     String // JSON or structured data for project details
+  userId      String
+  User        User            @relation(fields: [userId], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Prompt {
+  id        String     @id @default(uuid())
+  role      PromptRole
+  content   String
+  createdBy String
+  createdAt DateTime   @default(now())
+  projectId String
+  project   Project    @relation(fields: [projectId], references: [id])
+}
+
+model ProjectMember {
+  id        String      @id @default(uuid())
+  userId    String
+  projectId String
+  role      ProjectRole @default(MEMBER)
+  User      User        @relation(fields: [userId], references: [id])
+  Project   Project     @relation(fields: [projectId], references: [id])
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isFlagged Boolean  @default(false)
+
+  author   User      @relation(fields: [authorId], references: [id])
+  comments Comment[]
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  postId    String
+  authorId  String
+  createdAt DateTime @default(now())
+
+  post   Post @relation(fields: [postId], references: [id])
+  author User @relation(fields: [authorId], references: [id])
+}
+
+model ChatRoom {
+  id        String            @id @default(cuid())
+  name      String?
+  isGroup   Boolean           @default(false)
+  members   ChatParticipant[]
+  messages  Message[]
+  createdAt DateTime          @default(now())
+}
+
+model ChatParticipant {
+  id         String @id @default(cuid())
+  chatRoomId String
+  userId     String
+
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@unique([chatRoomId, userId])
+}
+
+model Message {
+  id         String      @id @default(cuid())
+  chatRoomId String
+  senderId   String
+  content    String
+  type       MessageType @default(TEXT)
+  sentAt     DateTime    @default(now())
+
+  sender   User          @relation("UserMessages", fields: [senderId], references: [id])
+  chatRoom ChatRoom      @relation(fields: [chatRoomId], references: [id])
+  readers  MessageRead[]
+}
+
+model MessageRead {
+  id        String   @id @default(cuid())
+  userId    String
+  messageId String
+  readAt    DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@unique([userId, messageId])
+}
+
+model DSAResult {
+  id        String    @id @default(uuid())
+  userId    String
+  code      String
+  language  String
+  output    String?
+  status    RunStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+  User      User      @relation(fields: [userId], references: [id])
+}
+
+model InterviewSession {
+  id          String    @id @default(uuid())
+  hostUserId  String
+  guestUserId String?
+  code        String?
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  Host        User      @relation("host", fields: [hostUserId], references: [id])
+  Guest       User?     @relation("guest", fields: [guestUserId], references: [id])
+}
+
+model Job {
+  id           String           @id @default(uuid())
+  title        String
+  company      String
+  description  String
+  tags         String[]
+  postedBy     String
+  createdAt    DateTime         @default(now())
+  postedByUser User             @relation(fields: [postedBy], references: [id])
+  applications JobApplication[]
+}
+
+model JobApplication {
+  id        String            @id @default(uuid())
+  userId    String
+  jobId     String
+  resumeUrl String
+  status    ApplicationStatus @default(PENDING)
+  User      User              @relation(fields: [userId], references: [id])
+  Job       Job               @relation(fields: [jobId], references: [id])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  LINK
+}

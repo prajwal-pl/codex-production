@@ -9,6 +9,10 @@
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/dotenv": "^6.1.1",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.0",
     "prettier": "^3.6.2",
     "turbo": "^2.5.6",
     "typescript": "5.9.2"
@@ -19,6 +23,8 @@
   "packageManager": "npm@10.9.3",
   "workspaces": [
     "apps/*",
+    "apps/worker-backend",
+    "apps/websocket-backend",
     "packages/*"
   ]
 }
