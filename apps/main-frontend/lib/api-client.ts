@@ -57,6 +57,16 @@ export const getPracticeData = async () => {
   return response.data;
 };
 
+export const getProfile = async () => {
+  const token = getToken();
+  const response = await apiClient.primary.get("/api/profile", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
 export const apiClient = {
   primary: primaryBackendClient,
   worker: workerBackendClient,
