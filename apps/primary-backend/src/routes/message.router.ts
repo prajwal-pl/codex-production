@@ -1,5 +1,5 @@
 import express from "express";
-import { authMiddleware } from "@repo/common";
+import { authMiddleware } from "@repo/common/middleware";
 
 const router = express.Router();
 

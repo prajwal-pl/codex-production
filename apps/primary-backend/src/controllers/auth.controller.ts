@@ -1,7 +1,6 @@
 import { type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import axios from "axios";
 import prisma from "@repo/db/client";
 import { getGoogleAuthUrl, oauth2Client } from "../lib/oauth.js";
 
@@ -164,7 +163,7 @@ export const googleCallbackHandler = async (req: Request, res: Response) => {
     });
 
     const frontend = process.env.FRONTEND_URL || "http://localhost:3000";
-    const url = new URL("/auth/callback", frontend);
+    const url = new URL("/callback", frontend);
     url.searchParams.set("token", token);
     res.redirect(302, url.toString());
   } catch (error) {
