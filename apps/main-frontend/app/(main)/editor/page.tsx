@@ -1,7 +1,9 @@
+"use client";
 import React from "react";
+import EditorHero from "@/components/global/editor/editor-hero";
 
 const EditorMain = () => {
-  return <div>EditorMain</div>;
+  return <EditorHero />;
 };
 
 export default EditorMain;
