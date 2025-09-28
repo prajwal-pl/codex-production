@@ -20,7 +20,7 @@ const Authorization = () => {
       toast.error("No authorization token found! Please try logging in again.");
       router.push("/sign-in");
     }
-  }, [token]);
+  }, [token, router]);
 
   return (
     <div className="flex flex-col items-center justify-center gap-4">

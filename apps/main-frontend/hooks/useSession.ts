@@ -1,10 +1,9 @@
-import { getProfile } from "@/lib/api-client";
+import { getProfile, type ProfileResponse } from "@/lib/api-client";
 import { useEffect, useState } from "react";
 
-type ProfileResponse = Awaited<ReturnType<typeof getProfile>>;
-
 export const useSession = () => {
-  const [user, setUser] = useState<null | ProfileResponse>(null);
+  type User = ProfileResponse["user"];
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -13,7 +12,7 @@ export const useSession = () => {
       try {
         setLoading(true);
         const userData = await getProfile();
-        setUser(userData?.user);
+        setUser(userData?.user ?? null);
       } catch (err) {
         setError(
           err instanceof Error ? err : new Error("Failed to fetch user")
