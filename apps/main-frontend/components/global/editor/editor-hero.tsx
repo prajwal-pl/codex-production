@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { Spotlight } from "@/components/ui/spotlight-new";
 import { BackgroundRippleEffect } from "@/components/ui/background-ripple-effect";
 import {
     Plus as IconPlus,
@@ -32,34 +31,46 @@ export const EditorHero: React.FC = () => {
                     </p>
                 </div>
 
-                {/* Input panel - native elements, aligned to dashboard card aesthetics */}
-                <div className="relative mx-auto w-full max-w-3xl rounded-xl border bg-card/90 text-white shadow-sm">
-                    <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-t from-primary/5 to-transparent" />
+                {/* Input panel - minimal glassmorphism inspired composer */}
+                <div className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-card/70 text-white shadow-xl shadow-black/20 backdrop-blur-md">
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.18),_transparent_60%)]" />
 
-                    <div className="relative z-10 flex flex-col gap-3 p-4 md:p-5">
+                    <div className="relative z-10 flex flex-col gap-6 p-6 md:p-8">
+                        <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.35em] text-white/50">
+                            <span className="inline-flex items-center gap-2">
+                                <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.6)]" />
+                                Compose
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-white/15 px-3 py-1 text-[0.65rem] font-medium tracking-[0.25em] text-white/60">
+                                AI ASSISTED
+                            </span>
+                        </div>
+
                         <textarea
                             value={value}
                             onChange={(e) => setValue(e.target.value)}
                             placeholder={"Type your idea and we'll build it together."}
                             rows={4}
-                            className="min-h-28 w-full resize-none rounded-lg bg-transparent px-2 text-base/6 text-white placeholder:text-white/65 placeholder:font-medium tracking-[-0.005em] border-0 outline-none ring-0 ring-offset-0 focus:ring-0 focus:ring-offset-0 focus:outline-none caret-white/80"
+                            className="min-h-[7.5rem] w-full resize-none bg-transparent text-base leading-relaxed text-white/90 placeholder:text-white/45 focus-visible:outline-none focus-visible:ring-0"
                         />
 
-                        <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-3">
+                        <div className="flex items-center justify-between gap-4 border-t border-white/10 pt-4">
                             <button
                                 type="button"
-                                className="inline-flex size-9 items-center justify-center rounded-md border border-white/10 bg-transparent text-white/90 transition-colors hover:bg-white/5 active:bg-white/10"
+                                className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-2 text-xs font-medium uppercase tracking-[0.3em] text-white/60 transition hover:border-white/30 hover:text-white/80"
                                 aria-label="Add attachment"
                             >
-                                <IconPlus className="size-4" />
+                                <IconPlus className="size-3.5" />
+                                Attach
                             </button>
 
                             <button
                                 type="button"
-                                className="inline-flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground ring-1 ring-primary/30 transition-colors hover:bg-primary/90"
+                                className="inline-flex items-center gap-2 rounded-full bg-primary/90 px-5 py-2 text-sm font-semibold text-primary-foreground shadow-[0_12px_32px_-12px_rgba(59,130,246,0.55)] transition hover:bg-primary"
                                 aria-label="Send"
                             >
-                                <IconArrowUp className="size-4" />
+                                Ship idea
+                                <IconArrowUp className="size-4 -rotate-45" />
                             </button>
                         </div>
                     </div>
