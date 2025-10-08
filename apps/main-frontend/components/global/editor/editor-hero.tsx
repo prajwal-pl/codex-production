@@ -6,9 +6,23 @@ import {
     Plus as IconPlus,
     ArrowUp as IconArrowUp,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
+import { createProject } from "@/lib/api-client";
 
 export const EditorHero: React.FC = () => {
+    const router = useRouter();
     const [value, setValue] = React.useState("");
+
+    const handleSubmit = () => {
+        createProject({
+            prompt: value,
+        }).then((res) => {
+            // Redirect to the new editor page
+            router.push(`/editor/${res.projectId}`);
+        })
+        setValue(""); // Clear the input after sending
+    }
 
     return (
         <section className="relative isolate w-full text-white h-[calc(100svh-var(--header-height,0px)-2rem)] md:h-[calc(100svh-var(--header-height,0px)-3rem)] overflow-hidden">
@@ -42,7 +56,7 @@ export const EditorHero: React.FC = () => {
                                 Compose
                             </span>
                             <span className="inline-flex items-center rounded-full border border-white/15 px-3 py-1 text-[0.65rem] font-medium tracking-[0.25em] text-white/60">
-                                AI ASSISTED
+                                Shift + Enter
                             </span>
                         </div>
 
@@ -51,6 +65,14 @@ export const EditorHero: React.FC = () => {
                             onChange={(e) => setValue(e.target.value)}
                             placeholder={"Type your idea and we'll build it together."}
                             rows={4}
+                            onKeyDown={(e) => {
+                                // Submit on Enter with Shift
+                                if (e.key === 'Enter' && e.shiftKey) {
+                                    e.preventDefault();
+                                    // Handle the send action here
+                                    handleSubmit();
+                                }
+                            }}
                             className="min-h-[7.5rem] w-full resize-none bg-transparent text-base leading-relaxed text-white/90 placeholder:text-white/45 focus-visible:outline-none focus-visible:ring-0"
                         />
 
@@ -63,11 +85,13 @@ export const EditorHero: React.FC = () => {
                                 <IconPlus className="size-3.5" />
                                 Attach
                             </button>
+                            {/* <span className="inline-flex items-center rounded-full border border-white/15 px-3 py-1 text-[0.65rem] font-medium tracking-[0.25em] text-white/60">Shift + Enter</span> */}
 
                             <button
                                 type="button"
                                 className="inline-flex items-center gap-2 rounded-full bg-primary/90 px-5 py-2 text-sm font-semibold text-primary-foreground shadow-[0_12px_32px_-12px_rgba(59,130,246,0.55)] transition hover:bg-primary"
                                 aria-label="Send"
+                                onClick={handleSubmit}
                             >
                                 Ship idea
                                 <IconArrowUp className="size-4 -rotate-45" />

@@ -1,7 +1,11 @@
 import React from "react";
 
-const EditorPage = () => {
-  return <div>EditorPage</div>;
+type EditorPageProps = {
+  params: { editorId: string };
+};
+
+const EditorPage = ({ params }: EditorPageProps) => {
+  return <div>EditorPage: {params.editorId}</div>;
 };
 
 export default EditorPage;
