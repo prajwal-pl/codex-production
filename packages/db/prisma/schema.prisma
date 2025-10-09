@@ -21,9 +21,28 @@ enum ProjectRole {
 
 enum RunStatus {
   PENDING
+  RUNNING
   SUCCESS
   ERROR
   TIMEOUT
+  CANCELLED
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  STREAMING
+  EXECUTING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum SandboxTemplate {
+  NODE_22
+  PYTHON_311
+  NEXT_15
+  REACT_19
 }
 
 enum Difficulty {
@@ -64,6 +83,8 @@ model User {
   messageReads     MessageRead[]
   interviewHost    InterviewSession[] @relation("host")
   interviewGuest   InterviewSession[] @relation("guest")
+  codeExecutions   CodeExecution[]
+  sandboxUsage     SandboxUsage[] // NEW
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   ChatParticipant  ChatParticipant[]
@@ -79,26 +100,126 @@ model Stats {
 }
 
 model Project {
-  id          String          @id @default(uuid())
-  title       String
-  description String?
-  prompt      Prompt[]
-  members     ProjectMember[]
-  content     String // JSON or structured data for project details
-  userId      String
-  User        User            @relation(fields: [userId], references: [id])
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id            String          @id @default(uuid())
+  title         String
+  description   String?
+  prompts       Prompt[] // renamed from prompt
+  members       ProjectMember[]
+  executions    CodeExecution[] // NEW
+  previewUrl    String? // NEW - for external preview
+  repositoryUrl String? // NEW - git integration
+  userId        String
+  user          User            @relation(fields: [userId], references: [id])
+  isPublic      Boolean         @default(false) // NEW
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Prompt {
   id        String     @id @default(uuid())
   role      PromptRole
-  content   String
+  content   String     @db.Text // Changed for larger content
+  metadata  Json? // NEW - store tokens, model info, etc
   createdBy String
   createdAt DateTime   @default(now())
   projectId String
-  project   Project    @relation(fields: [projectId], references: [id])
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+model CodeExecution {
+  id           String    @id @default(uuid())
+  projectId    String
+  userId       String
+  triggerJobId String    @unique // Trigger.dev job ID
+  status       JobStatus @default(PENDING)
+
+  // AI Generation
+  aiModel          String? // e.g., "groq/gpt-oss-120b"
+  generatedCode    String? @db.Text
+  promptTokens     Int?
+  completionTokens Int?
+
+  // Sandbox Execution
+  sandboxId       String?
+  sandboxTemplate SandboxTemplate?
+  sandboxLogs     SandboxLog[]
+  exitCode        Int?
+  executionTimeMs Int?
+
+  // Results
+  stdout    String?        @db.Text
+  stderr    String?        @db.Text
+  error     String?        @db.Text
+  artifacts CodeArtifact[] // NEW - generated files
+
+  previewUrl   String? // E2B sandbox preview URL
+  createdFiles String[]
+
+  // Metadata
+  metadata    Json? // store additional context
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([status])
+  @@index([triggerJobId])
+  @@index([createdAt])
+}
+
+model SandboxLog {
+  id          String        @id @default(uuid())
+  executionId String
+  type        String // "stdout" | "stderr" | "system"
+  content     String        @db.Text
+  timestamp   DateTime      @default(now())
+  execution   CodeExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([timestamp])
+}
+
+// NEW: Store generated files/artifacts
+model CodeArtifact {
+  id          String        @id @default(uuid())
+  executionId String
+  filename    String
+  path        String
+  content     String        @db.Text
+  mimeType    String
+  size        Int // in bytes
+  url         String? // S3/CDN URL if uploaded
+  createdAt   DateTime      @default(now())
+  execution   CodeExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([filename])
+}
+
+// NEW: Track sandbox usage for billing/quotas
+model SandboxUsage {
+  id              String          @id @default(uuid())
+  userId          String
+  sandboxTemplate SandboxTemplate
+  executionTimeMs Int
+  cpuTimeMs       Int?
+  memoryUsedMb    Int?
+  cost            Decimal         @db.Decimal(10, 4) // in USD
+  executedAt      DateTime        @default(now())
+  user            User            @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([executedAt])
 }
 
 model ProjectMember {
