@@ -1,11 +1,12 @@
 import React from "react";
 
 type EditorPageProps = {
-  params: { editorId: string };
+  params: Promise<{ editorId: string }>
 };
 
 const EditorPage = ({ params }: EditorPageProps) => {
-  return <div>EditorPage: {params.editorId}</div>;
+  const p = React.use(params);
+  return <div>EditorPage: {p.editorId}</div>;
 };
 
 export default EditorPage;

@@ -11,11 +11,13 @@
   },
   "dependencies": {
     "@ai-sdk/groq": "^2.0.14",
+    "@trigger.dev/sdk": "^4.0.4",
     "ai": "^5.0.22"
   },
   "devDependencies": {
-    "@repo/db": "*",
     "@repo/common": "*",
+    "@repo/db": "*",
+    "@trigger.dev/build": "^4.0.4",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   },
