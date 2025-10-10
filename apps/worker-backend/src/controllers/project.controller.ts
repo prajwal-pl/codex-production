@@ -1,145 +1,419 @@
-// import { type Request, type Response } from "express";
-// import { type CoreMessage, streamText } from "ai";
-// import { groq } from "@ai-sdk/groq";
-// import prisma from "@repo/db/client";
-// import { getSystemPrompt } from "../lib/systemPrompt.js";
+import { type Request, type Response } from "express";
+import { tasks } from "@trigger.dev/sdk/v3";
+import prisma from "@repo/db/client";
+import { codeEngineTask } from "../trigger/example.js";
+import type { CodeExecutionPayload } from "../types/index.js";
+import { JobStatus } from "@repo/db/generated/prisma";
 
-// export const createProjectHandler = async (req: Request, res: Response) => {
-//   const { prompt, projectId } = req.body;
-//   try {
-//     const messages: CoreMessage[] = [];
+/**
+ * Trigger code generation and execution
+ */
+export const createProjectHandler = async (req: Request, res: Response) => {
+  const { prompt, projectId } = req.body;
+  const userId = req.userId!;
 
-//     if (projectId) {
-//       const existingPrompts = await prisma.prompt.findMany({
-//         where: { projectId },
-//         orderBy: { createdAt: "asc" },
-//       });
+  try {
+    // Build messages array
+    const messages: Array<{ role: "user" | "assistant" | "system"; content: string }> = [];
 
-//       existingPrompts &&
-//         existingPrompts
-//           .filter((p) => p.content && p.content.trim() !== "")
-//           .forEach((p) => {
-//             messages.push({
-//               role: p.role.toLowerCase() as "user" | "assistant",
-//               content: p.content,
-//             });
-//           });
-//     }
+    let currentProjectId = projectId;
 
-//     messages.push(
-//       // {
-//       //   role: "system",
-//       //   content: getSystemPrompt(),
-//       // },
-//       {
-//         role: "user",
-//         content: prompt,
-//       }
-//     );
+    // If existing project, load conversation history
+    if (projectId) {
+      const existingPrompts = await prisma.prompt.findMany({
+        where: { projectId },
+        orderBy: { createdAt: "asc" },
+      });
 
-//     console.log("Final messages array:");
-//     messages.forEach((msg, i) => {
-//       const contentPreview =
-//         typeof msg.content === "string"
-//           ? msg.content.substring(0, 100)
-//           : JSON.stringify(msg.content).substring(0, 100);
-//       console.log(`${i}: ${msg.role} - ${contentPreview}...`);
-//     });
+      existingPrompts
+        .filter((p) => p.content && p.content.trim() !== "")
+        .forEach((p) => {
+          messages.push({
+            role: p.role.toLowerCase() as "user" | "assistant",
+            content: p.content,
+          });
+        });
+    } else {
+      // Create new project
+      const newProject = await prisma.project.create({
+        data: {
+          title: "New Project",
+          description: "AI-generated web application",
+          userId,
+        },
+      });
+      currentProjectId = newProject.id;
+    }
 
-//     const response = streamText({
-//       model: groq("llama-3.3-70b-versatile"),
-//       messages,
-//       system: getSystemPrompt(),
-//     });
+    // Add current user prompt
+    messages.push({
+      role: "user",
+      content: prompt,
+    });
 
-//     let fullResponse = "";
-//     for await (const chunk of response.textStream) {
-//       fullResponse += chunk;
-//     }
+    // Save user prompt to database
+    await prisma.prompt.create({
+      data: {
+        content: prompt,
+        role: "USER",
+        projectId: currentProjectId,
+        createdBy: userId,
+      },
+    });
 
-//     if (!fullResponse || fullResponse.trim() === "") {
-//       console.log("WARNING: fullResponse is empty!");
-//       return res.status(500).json({
-//         message: "AI response was empty",
-//         debug: { prompt, messages },
-//       });
-//     }
+    // Prepare payload for Trigger.dev task
+    const payload: CodeExecutionPayload = {
+      projectId: currentProjectId,
+      userId,
+      messages,
+      sandboxConfig: {
+        template: "NODE_22", // or custom template ID
+        timeout: 300000, // 5 minutes
+        keepAlive: true,
+      },
+    };
 
-//     let currentProjectId;
+    // Trigger the background job
+    const handle = await tasks.trigger<typeof codeEngineTask>(
+      "code-engine",
+      payload,
+      {
+        idempotencyKey: `code-exec-${currentProjectId}-${Date.now()}`,
+        tags: [`project:${currentProjectId}`, `user:${userId}`],
+      }
+    );
 
-//     if (!projectId) {
-//       const newProject = await prisma.project.create({
-//         data: {
-//           title: "New Project",
-//           description: "Automatically created project",
-//           content: fullResponse,
-//           userId: req.userId!,
-//         },
-//       });
+    return res.status(202).json({
+      success: true,
+      projectId: currentProjectId,
+      executionId: handle.id,
+      status: "processing",
+      message: "Code generation started. Check status endpoint for updates.",
+    });
+  } catch (error) {
+    console.error("Error triggering code generation:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to start code generation",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
 
-//       currentProjectId = newProject.id;
+/**
+ * Get execution status and results
+ */
+export const getExecutionStatusHandler = async (req: Request, res: Response) => {
+  const { executionId } = req.params;
+  const userId = req.userId!;
 
-//       await prisma.prompt.create({
-//         data: {
-//           content: prompt,
-//           role: "USER",
-//           projectId: currentProjectId,
-//           createdBy: req.userId!,
-//         },
-//       });
-//       await prisma.prompt.create({
-//         data: {
-//           content: fullResponse,
-//           role: "ASSISTANT",
-//           projectId: currentProjectId,
-//           createdBy: req.userId!,
-//         },
-//       });
+  try {
+    const execution = await prisma.codeExecution.findUnique({
+      where: { id: executionId! },
+      include: {
+        sandboxLogs: {
+          orderBy: { timestamp: "asc" },
+          take: 100, // Limit logs for performance
+        },
+        artifacts: {
+          select: {
+            id: true,
+            filename: true,
+            path: true,
+            mimeType: true,
+            size: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
 
-//       return res.status(201).json({
-//         projectId: currentProjectId,
-//         message: "Project created successfully",
-//         content: fullResponse,
-//       });
-//     }
+    if (!execution) {
+      return res.status(404).json({
+        success: false,
+        message: "Execution not found",
+      });
+    }
 
-//     await prisma.project.update({
-//       where: {
-//         id: projectId,
-//         userId: req.userId!,
-//       },
-//       data: {
-//         content: fullResponse,
-//       },
-//     });
+    // Verify user has access
+    if (execution.userId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access to execution",
+      });
+    }
 
-//     await prisma.prompt.create({
-//       data: {
-//         content: prompt,
-//         role: "USER",
-//         projectId: projectId,
-//         createdBy: req.userId!,
-//       },
-//     });
-//     await prisma.prompt.create({
-//       data: {
-//         content: fullResponse,
-//         role: "ASSISTANT",
-//         projectId: projectId,
-//         createdBy: req.userId!,
-//       },
-//     });
+    // If completed, save assistant response to prompts
+    if (execution.status === JobStatus.COMPLETED && execution.generatedCode) {
+      const existingAssistantPrompt = await prisma.prompt.findFirst({
+        where: {
+          projectId: execution.projectId,
+          role: "ASSISTANT",
+          createdAt: {
+            gte: execution.startedAt || execution.createdAt,
+          },
+        },
+      });
 
-//     return res.status(200).json({
-//       projectId: projectId,
-//       message: "Project retrieved successfully",
-//       content: fullResponse,
-//     });
-//   } catch (error) {
-//     console.log(error);
-//     return res.status(500).json({
-//       message: "Internal server error",
-//       error: error instanceof Error ? error.message : "Unknown error",
-//     });
-//   }
-// };
+      if (!existingAssistantPrompt) {
+        await prisma.prompt.create({
+          data: {
+            content: execution.generatedCode,
+            role: "ASSISTANT",
+            projectId: execution.projectId,
+            createdBy: userId,
+          },
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      execution: {
+        id: execution.id,
+        projectId: execution.projectId,
+        status: execution.status,
+        sandboxId: execution.sandboxId,
+        previewUrl: execution.previewUrl,
+        generatedCode: execution.generatedCode,
+        createdFiles: execution.createdFiles,
+        stdout: execution.stdout,
+        stderr: execution.stderr,
+        error: execution.error,
+        startedAt: execution.startedAt,
+        completedAt: execution.completedAt,
+        executionTimeMs: execution.executionTimeMs,
+      },
+      logs: execution.sandboxLogs,
+      artifacts: execution.artifacts,
+    });
+  } catch (error) {
+    console.error("Error fetching execution status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch execution status",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+/**
+ * Get execution logs (streaming support)
+ */
+export const getExecutionLogsHandler = async (req: Request, res: Response) => {
+  const { executionId } = req.params;
+  const { after } = req.query; // Timestamp for pagination
+  const userId = req.userId!;
+
+  try {
+    const execution = await prisma.codeExecution.findUnique({
+      where: { id: executionId! },
+      select: { userId: true },
+    });
+
+    if (!execution) {
+      return res.status(404).json({
+        success: false,
+        message: "Execution not found",
+      });
+    }
+
+    if (execution.userId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const logs = await prisma.sandboxLog.findMany({
+      where: {
+        executionId: executionId!,
+        ...(after && {
+          timestamp: {
+            gt: new Date(after as string),
+          },
+        }),
+      },
+      orderBy: { timestamp: "asc" },
+      take: 100,
+    });
+
+    return res.status(200).json({
+      success: true,
+      logs,
+      hasMore: logs.length === 100,
+    });
+  } catch (error) {
+    console.error("Error fetching logs:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch logs",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+/**
+ * Get project executions
+ */
+export const getProjectExecutionsHandler = async (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const userId = req.userId!;
+
+  try {
+    // Verify project access
+    const project = await prisma.project.findUnique({
+      where: { id: projectId! },
+      select: { userId: true },
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    if (project.userId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const executions = await prisma.codeExecution.findMany({
+      where: { projectId: projectId! },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        status: true,
+        sandboxId: true,
+        previewUrl: true,
+        createdAt: true,
+        completedAt: true,
+        executionTimeMs: true,
+        error: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      executions,
+    });
+  } catch (error) {
+    console.error("Error fetching project executions:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch executions",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+/**
+ * Download artifact file
+ */
+export const downloadArtifactHandler = async (req: Request, res: Response) => {
+  const { artifactId } = req.params;
+  const userId = req.userId!;
+
+  try {
+    const artifact = await prisma.codeArtifact.findUnique({
+      where: { id: artifactId! },
+      include: {
+        execution: {
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!artifact) {
+      return res.status(404).json({
+        success: false,
+        message: "Artifact not found",
+      });
+    }
+
+    if (artifact.execution.userId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    // Set appropriate headers
+    res.setHeader("Content-Type", artifact.mimeType);
+    res.setHeader("Content-Disposition", `attachment; filename="${artifact.filename}"`);
+    res.setHeader("Content-Length", artifact.size);
+
+    return res.send(artifact.content);
+  } catch (error) {
+    console.error("Error downloading artifact:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to download artifact",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+/**
+ * Cancel running execution
+ */
+export const cancelExecutionHandler = async (req: Request, res: Response) => {
+  const { executionId } = req.params;
+  const userId = req.userId!;
+
+  try {
+    const execution = await prisma.codeExecution.findUnique({
+      where: { id: executionId! },
+      select: { userId: true, status: true, triggerJobId: true },
+    });
+
+    if (!execution) {
+      return res.status(404).json({
+        success: false,
+        message: "Execution not found",
+      });
+    }
+
+    if (execution.userId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    if (!([JobStatus.PENDING, JobStatus.RUNNING, JobStatus.STREAMING, JobStatus.EXECUTING] as JobStatus[]).includes(execution.status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Execution cannot be cancelled in current state",
+      });
+    }
+
+    // Cancel Trigger.dev job (if API available)
+    // await tasks.cancel(execution.triggerJobId);
+
+    // Update execution status
+    await prisma.codeExecution.update({
+      where: { id: executionId! },
+      data: {
+        status: JobStatus.CANCELLED,
+        completedAt: new Date(),
+        error: "Execution cancelled by user",
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Execution cancelled successfully",
+    });
+  } catch (error) {
+    console.error("Error cancelling execution:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to cancel execution",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};

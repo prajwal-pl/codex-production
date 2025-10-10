@@ -5,6 +5,8 @@ import { getSystemPrompt } from "../lib/systemPrompt.js";
 import { CodeExecutionPayloadSchema } from "../types/index.js";
 import prisma from "@repo/db/client";
 import { JobStatus } from "@repo/db/generated/prisma";
+import { executeArtifact, parseArtifact } from "../lib/utils.js";
+import { Sandbox } from "@e2b/code-interpreter";
 
 // export const helloWorldTask = task({
 //   id: "hello-world",
@@ -32,83 +34,162 @@ export const codeEngineTask = task({
   },
   run: async (payload: any, { ctx }) => {
     logger.log("Code engine task running", { payload, ctx });
+    const validated = CodeExecutionPayloadSchema.safeParse(payload);
+    if (!validated.success) {
+      logger.error("Invalid payload", { errors: validated.error.message });
+      throw new Error("Invalid payload");
+    }
+
+    const { messages, projectId, userId, sandboxConfig } = validated.data;
+    const jobId = ctx.run.id
+
     try {
-      const validated = CodeExecutionPayloadSchema.safeParse(payload);
-      if (!validated.success) {
-        logger.error("Invalid payload", { errors: validated.error.message });
-        throw new Error("Invalid payload");
-      }
+      const execution = await prisma.codeExecution.create({
+        data: {
+          id: jobId,
+          userId,
+          projectId,
+          triggerJobId: jobId,
+          status: JobStatus.PENDING,
+          aiModel: "openai/gpt-oss-120b",
+          sandboxTemplate: sandboxConfig?.template || "NODE_22",
+        },
+      });
 
-      const { messages, projectId, userId, sandboxConfig } = validated.data;
-      const jobId = ctx.batch?.id || ``;
-
-      try {
-        const execution = await prisma.codeExecution.create({
-          data: {
-            userId,
-            projectId,
-            triggerJobId: jobId,
-            status: JobStatus.PENDING,
-            aiModel: "openai/gpt-oss-120b",
-            sandboxTemplate: sandboxConfig?.template || "NODE_22",
-          },
-        });
-
-        await prisma.codeExecution.update({
-          where: { id: execution.id },
-          data: {
-            status: JobStatus.STREAMING,
-            startedAt: new Date()
-          },
-        });
-
-        const response = await streamText({
-          model: groq("openai/gpt-oss-120b"),
-          messages: messages as ModelMessage[],
-          system: getSystemPrompt(),
-          onChunk: async (chunk) => {
-            logger.log("Received chunk", { chunk });
-            if (chunk.chunk.type === 'text-delta') {
-              await prisma.sandboxLog.create({
-                data: {
-                  executionId: execution.id,
-                  type: "ai-stream",
-                  content: chunk.chunk.text
-                }
-              });
-            }
-          }
-        });
-
-      } catch (error) {
-
-      }
+      await prisma.codeExecution.update({
+        where: { id: execution.id },
+        data: {
+          status: JobStatus.STREAMING,
+          startedAt: new Date()
+        },
+      });
 
       const response = await streamText({
         model: groq("openai/gpt-oss-120b"),
-        messages: [payload],
+        messages: messages as ModelMessage[],
         system: getSystemPrompt(),
-        onChunk: (chunk) => {
+        onChunk: async (chunk) => {
           logger.log("Received chunk", { chunk });
+          if (chunk.chunk.type === 'text-delta') {
+            logger.log("Text delta", { text: chunk.chunk.text });
+            // await prisma.sandboxLog.create({
+            //   data: {
+            //     executionId: execution.id,
+            //     type: "ai-stream",
+            //     content: chunk.chunk.text
+            //   }
+            // });
+          }
         }
-      })
+      });
+
+      const usage = await response.usage
 
       let fullResponse = "";
       for await (const chunk of response.textStream) {
         fullResponse += chunk;
       }
 
-      if (!fullResponse || fullResponse.trim() === "") {
-        throw new Error("No response from model");
+      await prisma.codeExecution.update({
+        where: { id: execution.id },
+        data: {
+          status: JobStatus.EXECUTING,
+          generatedCode: fullResponse,
+          promptTokens: usage?.inputTokens || 0,
+          completionTokens: usage?.totalTokens || 0,
+        }
+      })
+
+      logger.info("AI response received", { executionId: execution.id, responseLength: fullResponse.length });
+
+      const actions = parseArtifact(fullResponse);
+
+      if (actions.length === 0) {
+        throw new Error("No actions to execute");
       }
 
-      logger.log("Full response received", { fullResponse });
+      // await prisma.sandboxLog.create({
+      //   data: {
+      //     executionId: execution.id,
+      //     type: "system",
+      //     content: `Parsed ${actions.length} actions from AI response.`,
+      //   }
+      // })
 
+      const sandbox = await Sandbox.create({
+        apiKey: process.env.E2B_API_KEY!,
+        timeoutMs: 3600000,
+      })
 
+      const sandboxId = sandbox.sandboxId
+
+      // await prisma.sandboxLog.create({
+      //   data: {
+      //     executionId: execution.id,
+      //     type: "system",
+      //     content: `Created sandbox with ID: ${sandboxId}`,
+      //   }
+      // })
+
+      const executionResult = await executeArtifact(sandbox, actions, execution.id);
+
+      const devServerUrl = sandbox.getHost(3000)
+
+      // In example.ts, line 148
+      await prisma.codeExecution.update({
+        where: { id: execution.id },
+        data: {
+          status: JobStatus.COMPLETED,
+          completedAt: new Date(),
+          previewUrl: devServerUrl,
+          // ✅ FIX: Map to string array
+          createdFiles: executionResult.createdFiles.map(f =>
+            typeof f === 'string' ? f : f.path
+          ),
+          exitCode: executionResult.errors.length === 0 ? 0 : 1,
+          sandboxId
+        }
+      });
+      const startTime = (await sandbox.getInfo()).startedAt;
+      const endTime = (await sandbox.getInfo()).endAt;
+
+      const executionTimeMs = endTime && startTime ? Number(endTime) - Number(startTime) : 0;
+
+      await prisma.sandboxUsage.create({
+        data: {
+          userId,
+          sandboxTemplate: sandboxConfig?.template || "NODE_22",
+          memoryUsedMb: (await sandbox.getInfo()).memoryMB,
+          cpuTimeMs: (await sandbox.getInfo()).cpuCount,
+          cost: 0.01,
+          executionTimeMs: executionTimeMs,
+        }
+      })
+
+      logger.info("Code execution completed", { executionId: execution.id, sandboxId, devServerUrl, createdFiles: executionResult.createdFiles, errors: executionResult.errors });
+
+      return {
+        success: true,
+        executionId: execution.id,
+        filesCreated: executionResult.createdFiles.length,
+        commandsExecuted: executionResult.executedCommands.length,
+        errors: executionResult.errors.length,
+        previewUrl: devServerUrl,
+      }
 
     } catch (error) {
-      console.log(error)
-      logger.error("Error in code engine task", { error });
+      logger.error("Error during code execution process", { error });
+
+      await prisma.codeExecution.update({
+        where: { id: jobId },
+        data: {
+          status: JobStatus.FAILED,
+          error: error instanceof Error ? error.message : "Unknown error",
+          completedAt: new Date(),
+        },
+      });
+
+      throw error;
     }
   }
 })
