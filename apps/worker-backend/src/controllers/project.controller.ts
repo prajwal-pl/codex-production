@@ -3,7 +3,7 @@ import { tasks } from "@trigger.dev/sdk/v3";
 import prisma from "@repo/db/client";
 import { codeEngineTask } from "../trigger/example.js";
 import type { CodeExecutionPayload } from "../types/index.js";
-import { JobStatus } from "@repo/db/generated/prisma";
+import { JobStatus, PromptRole } from "@repo/db/generated/prisma";
 
 /**
  * Trigger code generation and execution
@@ -66,10 +66,13 @@ export const createProjectHandler = async (req: Request, res: Response) => {
       projectId: currentProjectId,
       userId,
       messages,
+      conversationTurn: 1,
+      existingFiles: [],
       sandboxConfig: {
         template: "NODE_22", // or custom template ID
         timeout: 300000, // 5 minutes
         keepAlive: true,
+        reuseSandbox: false,
       },
     };
 
@@ -414,6 +417,220 @@ export const cancelExecutionHandler = async (req: Request, res: Response) => {
       success: false,
       message: "Failed to cancel execution",
       error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+/**
+ * Continue conversation on existing project
+ */
+export const continueConversationHandler = async (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const { message } = req.body;
+  const userId = req.userId!;
+
+  if (!projectId) {
+    return res.status(400).json({
+      success: false,
+      message: "Project ID is required",
+    });
+  }
+
+  try {
+    // Validate project access
+    const project = await prisma.project.findFirst({
+      where: {
+        id: projectId,
+        OR: [
+          { userId },
+          { members: { some: { userId } } },
+        ],
+      },
+      include: {
+        prompts: {
+          orderBy: { createdAt: "asc" },
+        },
+        executions: {
+          where: { status: JobStatus.COMPLETED },
+          orderBy: { conversationTurn: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found or unauthorized",
+      });
+    }
+
+    // Get existing files from last execution
+    const lastExecution = project.executions[0];
+    const existingFiles = lastExecution?.createdFiles || [];
+    const conversationTurn = (lastExecution?.conversationTurn || 0) + 1;
+
+    // Build conversation history (last 10 messages for context)
+    const conversationHistory = project.prompts
+      .slice(-10)
+      .map((prompt: any) => ({
+        role: prompt.role === PromptRole.USER ? ("user" as const) : ("assistant" as const),
+        content: prompt.content,
+      }));
+
+    // Add new user message
+    await prisma.prompt.create({
+      data: {
+        projectId: projectId,
+        role: PromptRole.USER,
+        content: message,
+        createdBy: userId,
+        metadata: {
+          conversationTurn,
+          timestamp: new Date().toISOString(),
+        },
+      },
+    });
+
+    conversationHistory.push({
+      role: "user" as const,
+      content: message,
+    });
+
+    // Trigger code execution with conversation context
+    const payload = {
+      projectId,
+      userId,
+      messages: conversationHistory,
+      conversationTurn,
+      parentExecutionId: lastExecution?.id,
+      existingFiles,
+      sandboxConfig: {
+        reuseSandbox: true,
+        ...(project.activeSandboxId && { sandboxId: project.activeSandboxId }),
+        template: (lastExecution?.sandboxTemplate as any) || "NODE_22",
+        timeout: 3600000,
+        keepAlive: true,
+      },
+    };
+
+    const handle = await tasks.trigger<typeof codeEngineTask>(
+      "code-engine",
+      payload,
+      {
+        idempotencyKey: `continue-conversation-${projectId}-${conversationTurn}-${Date.now()}`,
+        tags: [`project:${projectId}`, `user:${userId}`, `turn:${conversationTurn}`],
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        projectId,
+        executionId: handle.id,
+        jobId: handle.id,
+        conversationTurn,
+        message: "Processing your request...",
+      },
+    });
+  } catch (error) {
+    console.error("Error in continue conversation:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to process conversation",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+/**
+ * Get conversation history for a project
+ */
+export const getConversationHandler = async (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const userId = req.userId!;
+
+  if (!projectId) {
+    return res.status(400).json({
+      success: false,
+      message: "Project ID is required",
+    });
+  }
+
+  try {
+    const project = await prisma.project.findFirst({
+      where: {
+        id: projectId,
+        OR: [
+          { userId },
+          { members: { some: { userId } } },
+        ],
+      },
+      include: {
+        prompts: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            execution: {
+              select: {
+                id: true,
+                status: true,
+                previewUrl: true,
+                changedFiles: true,
+                diffSummary: true,
+              },
+            },
+          },
+        },
+        executions: {
+          orderBy: { conversationTurn: "asc" },
+          select: {
+            id: true,
+            status: true,
+            conversationTurn: true,
+            previewUrl: true,
+            createdFiles: true,
+            changedFiles: true,
+            createdAt: true,
+            completedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        project: {
+          id: project.id,
+          title: project.title,
+          description: project.description,
+          previewUrl: project.previewUrl,
+          activeSandboxId: project.activeSandboxId,
+          conversationContext: project.conversationContext,
+        },
+        conversation: project.prompts.map((prompt: any) => ({
+          id: prompt.id,
+          role: prompt.role,
+          content: prompt.content,
+          createdAt: prompt.createdAt,
+          metadata: prompt.metadata,
+          execution: prompt.execution,
+        })),
+        executions: project.executions,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching conversation:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch conversation",
     });
   }
 };

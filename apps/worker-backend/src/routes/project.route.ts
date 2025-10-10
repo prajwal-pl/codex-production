@@ -7,12 +7,20 @@ import {
     getProjectExecutionsHandler,
     downloadArtifactHandler,
     cancelExecutionHandler,
+    continueConversationHandler,
+    getConversationHandler,
 } from "../controllers/project.controller.js";
 
 const router = express.Router();
 
 // Create/update project and trigger code generation
 router.post("/create", authMiddleware, createProjectHandler);
+
+// Continue existing conversation for a project
+router.post("/:projectId/conversation", authMiddleware, continueConversationHandler);
+
+// Get conversation history for a project
+router.get("/:projectId/conversation", authMiddleware, getConversationHandler);
 
 // Get execution status and results
 router.get("/execution/:executionId", authMiddleware, getExecutionStatusHandler);

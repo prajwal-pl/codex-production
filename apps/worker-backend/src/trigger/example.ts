@@ -25,7 +25,7 @@ import { Sandbox } from "@e2b/code-interpreter";
 
 export const codeEngineTask = task({
   id: "code-engine",
-  maxDuration: 900, // Stop executing after 900 secs (15 mins) of compute
+  maxDuration: 1800, // Stop executing after 1800 secs (30 mins) of compute - increased for conversation iterations
   retry: {
     maxAttempts: 3,
     factor: 2,
@@ -36,8 +36,11 @@ export const codeEngineTask = task({
     logger.log("Code engine task running", { payload, ctx });
     const validated = CodeExecutionPayloadSchema.safeParse(payload);
     if (!validated.success) {
-      logger.error("Invalid payload", { errors: validated.error.message });
-      throw new Error("Invalid payload");
+      logger.error("Invalid payload", {
+        errors: validated.error.issues,
+        payload: JSON.stringify(payload, null, 2)
+      });
+      throw new Error(`Invalid payload: ${validated.error.issues.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
     }
 
     const { messages, projectId, userId, sandboxConfig } = validated.data;
@@ -150,22 +153,66 @@ export const codeEngineTask = task({
         errors: executionResult.errors.length
       });
 
-      // ✅ Wait for dev server to fully start (30 seconds)
+      // ✅ Wait for dev server to fully start (30 seconds initially)
       logger.info("Waiting for dev server to fully initialize...");
       await wait.for({ seconds: 30 });
 
+      // ✅ Check if dev server process is still running
+      try {
+        const processCheck = await sandbox.commands.run("ps aux | grep -E '(node|npm|yarn|pnpm)' | grep -v grep || echo 'no processes'");
+        await prisma.sandboxLog.create({
+          data: {
+            executionId: execution.id,
+            type: "system",
+            content: `Active Node processes:\n${processCheck.stdout}`,
+          },
+        });
+      } catch (error) {
+        logger.warn("Could not check running processes", { error });
+      }
+
       // ✅ CRITICAL FIX: Detect the actual port the dev server is using
       const { detectDevServerPort } = await import("../lib/utils.js");
-      const detectedPort = await detectDevServerPort(sandbox, execution.id);
+      let detectedPort = await detectDevServerPort(sandbox, execution.id);
+
+      // ✅ If no port detected, wait a bit longer and try again (dev server might be slow to start)
+      if (!detectedPort) {
+        logger.warn("Port not detected on first attempt, waiting additional 15 seconds...");
+
+        await prisma.sandboxLog.create({
+          data: {
+            executionId: execution.id,
+            type: "system",
+            content: "⚠️ Port not detected on first attempt, waiting additional 15 seconds for dev server to start...",
+          },
+        });
+
+        await wait.for({ seconds: 15 });
+        detectedPort = await detectDevServerPort(sandbox, execution.id);
+      }
 
       if (!detectedPort) {
-        logger.error("Could not detect dev server port");
+        logger.error("Could not detect dev server port after multiple attempts");
+
+        // Capture final dev server logs for debugging
+        try {
+          const finalLogs = await sandbox.commands.run("cat /tmp/dev-server.log 2>/dev/null | tail -100 || echo 'No logs available'");
+          await prisma.sandboxLog.create({
+            data: {
+              executionId: execution.id,
+              type: "stderr",
+              content: `❌ Final dev server logs:\n${finalLogs.stdout}`,
+            },
+          });
+        } catch (error) {
+          logger.warn("Could not capture final logs", { error });
+        }
 
         await prisma.sandboxLog.create({
           data: {
             executionId: execution.id,
             type: "stderr",
-            content: "Failed to detect dev server port. The application may not have started correctly.",
+            content: "❌ Failed to detect dev server port after waiting 45 seconds. The application may have failed to start. Check the dev server logs above for errors.",
           },
         });
 

@@ -467,53 +467,10 @@ export async function detectDevServerPort(sandbox: Sandbox, executionId: string)
     // Common dev server ports to check
     const commonPorts = [3000, 5173, 8080, 4200, 5000, 3001, 8000];
 
-    // Check dev server logs for port information
+    // ✅ FIRST: Check which ports are ACTUALLY listening (most reliable)
     try {
-        const logs = await sandbox.commands.run("cat /tmp/dev-server.log 2>/dev/null || echo ''");
+        logger.info("Checking for listening ports...");
 
-        if (logs.stdout) {
-            // Log the output for debugging
-            await prisma.sandboxLog.create({
-                data: {
-                    executionId,
-                    type: "system",
-                    content: `Dev server logs:\n${logs.stdout}`,
-                },
-            });
-
-            // Extract port from common patterns
-            const portPatterns = [
-                /Local:\s+https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d+)/i,
-                /localhost:(\d+)/i,
-                /port\s+(\d+)/i,
-                /running (?:at|on).*?:(\d+)/i,
-                /http:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d+)/i,
-            ];
-
-            for (const pattern of portPatterns) {
-                const match = logs.stdout.match(pattern);
-                if (match && match[1]) {
-                    const port = parseInt(match[1], 10);
-                    logger.info(`Found port ${port} in dev server logs`);
-
-                    await prisma.sandboxLog.create({
-                        data: {
-                            executionId,
-                            type: "system",
-                            content: `Detected dev server port from logs: ${port}`,
-                        },
-                    });
-
-                    return port;
-                }
-            }
-        }
-    } catch (error) {
-        logger.warn("Could not read dev server logs", { error });
-    }
-
-    // Fallback: Check which ports are actually listening
-    try {
         const listeningPorts = await sandbox.commands.run(
             "netstat -tuln 2>/dev/null | grep LISTEN | awk '{print $4}' | grep -oE ':[0-9]+$' | cut -d: -f2 || " +
             "ss -tuln 2>/dev/null | grep LISTEN | awk '{print $5}' | grep -oE ':[0-9]+$' | cut -d: -f2 || " +
@@ -532,7 +489,7 @@ export async function detectDevServerPort(sandbox: Sandbox, executionId: string)
                 data: {
                     executionId,
                     type: "system",
-                    content: `Listening ports: ${ports.join(', ')}`,
+                    content: `Active listening ports: ${ports.join(', ') || 'none'}`,
                 },
             });
 
@@ -540,6 +497,15 @@ export async function detectDevServerPort(sandbox: Sandbox, executionId: string)
             for (const commonPort of commonPorts) {
                 if (ports.includes(commonPort)) {
                     logger.info(`Found common dev server port: ${commonPort}`);
+
+                    await prisma.sandboxLog.create({
+                        data: {
+                            executionId,
+                            type: "system",
+                            content: `✅ Detected dev server on port ${commonPort} (listening)`,
+                        },
+                    });
+
                     return commonPort;
                 }
             }
@@ -547,6 +513,15 @@ export async function detectDevServerPort(sandbox: Sandbox, executionId: string)
             // Return the first user port found
             if (ports.length > 0 && ports[0]) {
                 logger.info(`Using first detected port: ${ports[0]}`);
+
+                await prisma.sandboxLog.create({
+                    data: {
+                        executionId,
+                        type: "system",
+                        content: `✅ Using detected port ${ports[0]}`,
+                    },
+                });
+
                 return ports[0];
             }
         }
@@ -554,7 +529,80 @@ export async function detectDevServerPort(sandbox: Sandbox, executionId: string)
         logger.warn("Could not detect listening ports", { error });
     }
 
-    // Last resort: try common ports
+    // ✅ SECOND: Check dev server logs for port information
+    try {
+        const logs = await sandbox.commands.run("cat /tmp/dev-server.log 2>/dev/null || echo ''");
+
+        if (logs.stdout) {
+            // Log the output for debugging
+            await prisma.sandboxLog.create({
+                data: {
+                    executionId,
+                    type: "system",
+                    content: `Dev server log contents:\n${logs.stdout.slice(-500)}`, // Last 500 chars
+                },
+            });
+
+            // Extract port from common patterns
+            const portPatterns = [
+                /Local:\s+https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d+)/i,
+                /localhost:(\d+)/i,
+                /port\s+(\d+)/i,
+                /running (?:at|on).*?:(\d+)/i,
+                /http:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d+)/i,
+                /ready (?:started server on|on).*?:(\d+)/i,
+                /server (?:running|started|listening).*?(?:port|on).*?(\d+)/i,
+            ];
+
+            for (const pattern of portPatterns) {
+                const match = logs.stdout.match(pattern);
+                if (match && match[1]) {
+                    const port = parseInt(match[1], 10);
+                    logger.info(`Found port ${port} in dev server logs`);
+
+                    await prisma.sandboxLog.create({
+                        data: {
+                            executionId,
+                            type: "system",
+                            content: `✅ Detected port ${port} from dev server logs`,
+                        },
+                    });
+
+                    return port;
+                }
+            }
+        } else {
+            await prisma.sandboxLog.create({
+                data: {
+                    executionId,
+                    type: "stderr",
+                    content: "⚠️ Dev server log file is empty or doesn't exist",
+                },
+            });
+        }
+    } catch (error) {
+        logger.warn("Could not read dev server logs", { error });
+
+        await prisma.sandboxLog.create({
+            data: {
+                executionId,
+                type: "stderr",
+                content: `⚠️ Error reading dev server logs: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            },
+        });
+    }
+
+    // ✅ THIRD: Try common ports with HTTP checks
+    logger.info("Trying common ports with HTTP checks...");
+
+    await prisma.sandboxLog.create({
+        data: {
+            executionId,
+            type: "system",
+            content: `Attempting HTTP checks on common ports: ${commonPorts.join(', ')}`,
+        },
+    });
+
     for (const port of commonPorts) {
         try {
             const testResult = await sandbox.commands.run(

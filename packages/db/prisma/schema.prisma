@@ -100,36 +100,50 @@ model Stats {
 }
 
 model Project {
-  id            String          @id @default(uuid())
-  title         String
-  description   String?
-  prompts       Prompt[] // renamed from prompt
-  members       ProjectMember[]
-  executions    CodeExecution[] // NEW
+  id          String          @id @default(uuid())
+  title       String
+  description String?
+  prompts     Prompt[] // renamed from prompt
+  members     ProjectMember[]
+  executions  CodeExecution[] // NEW
+
+  // Conversation state tracking
+  activeSandboxId     String? // Current running sandbox for live updates
+  currentExecutionId  String? // Latest execution in conversation
+  conversationContext Json? // Store conversation state: { lastTurn, activeFiles, etc. }
+
   previewUrl    String? // NEW - for external preview
   repositoryUrl String? // NEW - git integration
   userId        String
-  user          User            @relation(fields: [userId], references: [id])
-  isPublic      Boolean         @default(false) // NEW
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  user          User     @relation(fields: [userId], references: [id])
+  isPublic      Boolean  @default(false) // NEW
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([userId])
   @@index([createdAt])
+  @@index([activeSandboxId])
+  @@index([currentExecutionId])
 }
 
 model Prompt {
-  id        String     @id @default(uuid())
-  role      PromptRole
-  content   String     @db.Text // Changed for larger content
-  metadata  Json? // NEW - store tokens, model info, etc
+  id       String     @id @default(uuid())
+  role     PromptRole
+  content  String     @db.Text // Changed for larger content
+  metadata Json? // NEW - store tokens, model info, file changes, etc
+
+  // Link to execution that generated this response
+  executionId String?
+  execution   CodeExecution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
+
   createdBy String
-  createdAt DateTime   @default(now())
+  createdAt DateTime @default(now())
   projectId String
-  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([createdAt])
+  @@index([executionId])
 }
 
 model CodeExecution {
@@ -144,6 +158,13 @@ model CodeExecution {
   generatedCode    String? @db.Text
   promptTokens     Int?
   completionTokens Int?
+
+  // Conversation tracking
+  conversationTurn  Int      @default(1) // 1 = first message, 2 = first response, etc.
+  parentExecutionId String? // Link to previous execution in conversation
+  changedFiles      Json? // Array of {path, action: "create"|"update"|"delete"}
+  diffSummary       String?  @db.Text // Human-readable summary of changes
+  prompts           Prompt[] // Prompts linked to this execution
 
   // Sandbox Execution
   sandboxId       String?
@@ -175,6 +196,8 @@ model CodeExecution {
   @@index([status])
   @@index([triggerJobId])
   @@index([createdAt])
+  @@index([conversationTurn])
+  @@index([parentExecutionId])
 }
 
 model SandboxLog {
