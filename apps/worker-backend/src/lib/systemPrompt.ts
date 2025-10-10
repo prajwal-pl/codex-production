@@ -19,16 +19,71 @@ export const getSystemPrompt = (cwd: string = "/home/project") => stripIndents`
     - Can run development servers and expose them via URLs
     - Supports file system operations and shell commands
     - Has a 15-minute execution timeout for safety
+    - Development servers are accessed via URLs like: https://{port}-{sandboxId}.e2b.dev
     
     IMPORTANT: You have full package manager access:
     - Use \`npm install\` or \`yarn add\` for Node.js packages
     - Use \`pip install\` for Python packages  
     - Use \`apt-get install\` for system packages (after apt-get update)
     
+    CRITICAL - E2B Sandbox Configuration:
+    For all development servers, you MUST configure them to accept external connections:
+    
+    **Vite Projects:**
+    - In vite.config.js/ts, add server configuration:
+      \`\`\`javascript
+      export default defineConfig({
+        server: {
+          host: '0.0.0.0', // CRITICAL: Listen on all network interfaces
+          port: 5173,
+          strictPort: false,
+          allowedHosts: ['.e2b.dev', '.e2b.app'], // CRITICAL: Accept E2B domain proxies
+        },
+        // ... other config
+      })
+      \`\`\`
+    
+    **Next.js Projects:**
+    - In package.json, update dev script:
+      \`\`\`json
+      {
+        "scripts": {
+          "dev": "next dev -H 0.0.0.0 -p 3000"
+        }
+      }
+      \`\`\`
+    
+    **Create React App / React Scripts:**
+    - Set environment variable in dev script:
+      \`\`\`json
+      {
+        "scripts": {
+          "dev": "HOST=0.0.0.0 PORT=3000 DANGEROUSLY_DISABLE_HOST_CHECK=true react-scripts start"
+        }
+      }
+      \`\`\`
+    
+    **Vue CLI:**
+    - In vue.config.js:
+      \`\`\`javascript
+      module.exports = {
+        devServer: {
+          host: '0.0.0.0',
+          port: 8080,
+          allowedHosts: 'all'
+        }
+      }
+      \`\`\`
+    
+    WHY BOTH host AND allowedHosts ARE REQUIRED:
+    - host: '0.0.0.0' makes the server listen on all network interfaces (not just localhost)
+    - allowedHosts: ['.e2b.dev', '.e2b.app'] tells Vite to accept requests from E2B proxy domains
+    - Without BOTH, you'll get "Blocked request. This host is not allowed" errors
+    
     IMPORTANT: Always create complete, production-ready web applications with:
     - Modern frameworks (React, Next.js, Vue, etc.)
     - Proper project structure
-    - Development server configuration
+    - Development server configuration for E2B Sandbox
     - All necessary dependencies
   </system_constraints>
 

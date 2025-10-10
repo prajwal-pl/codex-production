@@ -44,8 +44,10 @@ export const codeEngineTask = task({
     const jobId = ctx.run.id
 
     try {
-      const execution = await prisma.codeExecution.create({
-        data: {
+      // Use upsert to handle retries gracefully
+      const execution = await prisma.codeExecution.upsert({
+        where: { id: jobId },
+        create: {
           id: jobId,
           userId,
           projectId,
@@ -53,6 +55,11 @@ export const codeEngineTask = task({
           status: JobStatus.PENDING,
           aiModel: "openai/gpt-oss-120b",
           sandboxTemplate: sandboxConfig?.template || "NODE_22",
+        },
+        update: {
+          // On retry, reset to pending state
+          status: JobStatus.PENDING,
+          error: null,
         },
       });
 
@@ -118,22 +125,97 @@ export const codeEngineTask = task({
 
       const sandbox = await Sandbox.create({
         apiKey: process.env.E2B_API_KEY!,
-        timeoutMs: 3600000,
+        timeoutMs: 3600000, // 1 hour timeout
       })
 
       const sandboxId = sandbox.sandboxId
 
-      // await prisma.sandboxLog.create({
-      //   data: {
-      //     executionId: execution.id,
-      //     type: "system",
-      //     content: `Created sandbox with ID: ${sandboxId}`,
-      //   }
-      // })
+      logger.info("Sandbox created", { sandboxId });
+
+      await prisma.sandboxLog.create({
+        data: {
+          executionId: execution.id,
+          type: "system",
+          content: `E2B Sandbox created: ${sandboxId}`,
+        }
+      })
+
+      logger.info("Executing artifact in sandbox...");
 
       const executionResult = await executeArtifact(sandbox, actions, execution.id);
 
-      const devServerUrl = sandbox.getHost(3000)
+      logger.info("Artifact executed", {
+        filesCreated: executionResult.createdFiles.length,
+        commandsExecuted: executionResult.executedCommands.length,
+        errors: executionResult.errors.length
+      });
+
+      // ✅ Wait for dev server to fully start (30 seconds)
+      logger.info("Waiting for dev server to fully initialize...");
+      await wait.for({ seconds: 30 });
+
+      // ✅ CRITICAL FIX: Detect the actual port the dev server is using
+      const { detectDevServerPort } = await import("../lib/utils.js");
+      const detectedPort = await detectDevServerPort(sandbox, execution.id);
+
+      if (!detectedPort) {
+        logger.error("Could not detect dev server port");
+
+        await prisma.sandboxLog.create({
+          data: {
+            executionId: execution.id,
+            type: "stderr",
+            content: "Failed to detect dev server port. The application may not have started correctly.",
+          },
+        });
+
+        throw new Error("Dev server port detection failed. Check sandbox logs for details.");
+      }
+
+      logger.info(`Dev server detected on port ${detectedPort}`);
+
+      // ✅ Use the detected port for the URL
+      const sandboxHost = sandbox.getHost(detectedPort);
+      const devServerUrl = `https://${sandboxHost}`;
+
+      logger.info("Dev server URL generated", {
+        detectedPort,
+        sandboxHost,
+        devServerUrl,
+        sandboxId
+      });
+
+      // ✅ Verify dev server is responding on detected port
+      try {
+        const serverCheck = await sandbox.commands.run(
+          `curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:${detectedPort} || echo 'timeout'`
+        );
+
+        logger.info(`Port ${detectedPort} HTTP check`, {
+          response: serverCheck.stdout,
+          exitCode: serverCheck.exitCode
+        });
+
+        if (serverCheck.stdout.includes('200') || serverCheck.stdout.includes('304') || serverCheck.stdout.includes('301')) {
+          logger.info(`✅ Dev server responding successfully on port ${detectedPort}`);
+
+          await prisma.sandboxLog.create({
+            data: {
+              executionId: execution.id,
+              type: "system",
+              content: `✅ Dev server is accessible at ${devServerUrl} (port ${detectedPort})`,
+            },
+          });
+        } else {
+          logger.warn(`⚠️ Dev server not responding on port ${detectedPort}`, {
+            response: serverCheck.stdout
+          });
+        }
+      } catch (checkError) {
+        logger.warn("Could not verify dev server status", {
+          error: checkError instanceof Error ? checkError.message : 'Unknown error'
+        });
+      }
 
       // In example.ts, line 148
       await prisma.codeExecution.update({
