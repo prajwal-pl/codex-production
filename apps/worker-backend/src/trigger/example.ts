@@ -1,12 +1,12 @@
-import { groq } from "@ai-sdk/groq";
 import { logger, task, wait } from "@trigger.dev/sdk/v3";
-import { streamText, type ModelMessage } from "ai";
+import { type ModelMessage } from "ai";
 import { getSystemPrompt } from "../lib/systemPrompt.js";
 import { CodeExecutionPayloadSchema } from "../types/index.js";
 import prisma from "@repo/db/client";
 import { JobStatus } from "@repo/db/generated/prisma";
 import { executeArtifact, parseArtifact } from "../lib/utils.js";
 import { Sandbox } from "@e2b/code-interpreter";
+import { generateWithGitHubModels, GITHUB_MODELS, type GitHubModelsMessage } from "../lib/github-models-provider.js";
 
 // export const helloWorldTask = task({
 //   id: "hello-world",
@@ -56,7 +56,7 @@ export const codeEngineTask = task({
           projectId,
           triggerJobId: jobId,
           status: JobStatus.PENDING,
-          aiModel: "openai/gpt-oss-120b",
+          aiModel: "github/openai/gpt-4.1",
           sandboxTemplate: sandboxConfig?.template || "NODE_22",
         },
         update: {
@@ -74,39 +74,43 @@ export const codeEngineTask = task({
         },
       });
 
-      const response = await streamText({
-        model: groq("openai/gpt-oss-120b"),
-        messages: messages as ModelMessage[],
-        system: getSystemPrompt(),
-        onChunk: async (chunk) => {
-          logger.log("Received chunk", { chunk });
-          if (chunk.chunk.type === 'text-delta') {
-            logger.log("Text delta", { text: chunk.chunk.text });
-            // await prisma.sandboxLog.create({
-            //   data: {
-            //     executionId: execution.id,
-            //     type: "ai-stream",
-            //     content: chunk.chunk.text
-            //   }
-            // });
-          }
-        }
+      logger.info("🤖 Generating code with GitHub Models API (GPT-4.1)...");
+
+      // Convert ModelMessage[] to GitHubModelsMessage[]
+      const githubMessages: GitHubModelsMessage[] = [
+        { role: "system", content: getSystemPrompt() },
+        ...(messages as ModelMessage[]).map(m => ({
+          role: m.role as "user" | "assistant",
+          content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+        }))
+      ];
+
+      // Generate with GitHub Models API
+      const result = await generateWithGitHubModels(githubMessages, {
+        model: GITHUB_MODELS.GPT_4_1,
+        temperature: 0.7,
+        maxTokens: 8192, // GPT-4.1 supports larger context
+        topP: 1.0,
       });
 
-      const usage = await response.usage
+      const fullResponse = result.content;
+      const promptTokens = result.promptTokens;
+      const completionTokens = result.completionTokens;
 
-      let fullResponse = "";
-      for await (const chunk of response.textStream) {
-        fullResponse += chunk;
-      }
+      logger.info("✅ GitHub Models generation complete", {
+        responseLength: fullResponse.length,
+        promptTokens,
+        completionTokens,
+        totalTokens: result.totalTokens,
+      });
 
       await prisma.codeExecution.update({
         where: { id: execution.id },
         data: {
           status: JobStatus.EXECUTING,
           generatedCode: fullResponse,
-          promptTokens: usage?.inputTokens || 0,
-          completionTokens: usage?.totalTokens || 0,
+          promptTokens: promptTokens,
+          completionTokens: completionTokens,
         }
       })
 
