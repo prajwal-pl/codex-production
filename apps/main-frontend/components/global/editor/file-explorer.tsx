@@ -147,7 +147,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     }
 
     return (
-        <div className="h-full overflow-y-auto">
+        <div className="h-full overflow-y-auto border-l">
             <div className="space-y-0.5 p-2">
                 {fileTree.map((item) => (
                     <FileTreeItem

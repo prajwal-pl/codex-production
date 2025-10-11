@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Editor from "@monaco-editor/react";
+import Editor, { OnMount } from "@monaco-editor/react";
+import * as monaco from "monaco-editor";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -45,6 +46,25 @@ const parseBreadcrumbs = (path: string) => {
     return segments;
 };
 
+// Define custom theme that matches the application
+const defineCustomTheme = (monacoInstance: typeof monaco) => {
+    monacoInstance.editor.defineTheme("codex-dark", {
+        base: "vs-dark",
+        inherit: true,
+        rules: [],
+        colors: {
+            "editor.background": "#18181a", // Dark background matching card
+            "editor.foreground": "#fbfbfc", // Light foreground
+            "editorLineNumber.foreground": "#6b7280", // Muted line numbers
+            "editorCursor.foreground": "#8b5cf6", // Primary purple cursor
+            "editor.selectionBackground": "#8b5cf630", // Primary purple selection
+            "editor.inactiveSelectionBackground": "#8b5cf620",
+            "editorIndentGuide.background": "#3f3f46",
+            "editorIndentGuide.activeBackground": "#52525b",
+        },
+    });
+};
+
 export const CodeViewer: React.FC<CodeViewerProps> = ({
     selectedFile,
     fileContent,
@@ -57,6 +77,11 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
             setContent(fileContent);
         }
     }, [fileContent]);
+
+    const handleEditorDidMount: OnMount = (editor, monacoInstance) => {
+        defineCustomTheme(monacoInstance);
+        monacoInstance.editor.setTheme("codex-dark");
+    };
 
     if (!selectedFile) {
         return (
@@ -107,7 +132,7 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
             </div>
 
             {/* Monaco Editor */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden bg-[#24262e]">
                 {isLoading ? (
                     <div className="flex h-full items-center justify-center">
                         <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -117,7 +142,8 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
                         height="100%"
                         language={language}
                         value={content}
-                        theme="vs-dark"
+                        theme="codex-dark"
+                        onMount={handleEditorDidMount}
                         options={{
                             readOnly: true,
                             minimap: { enabled: false },
@@ -127,6 +153,8 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({
                             automaticLayout: true,
                             wordWrap: "on",
                             padding: { top: 16, bottom: 16 },
+                            fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+                            lineHeight: 1.6,
                         }}
                     />
                 )}

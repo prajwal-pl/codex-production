@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Send, Loader2 } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
@@ -18,15 +18,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 }) => {
     const [value, setValue] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-    // Auto-resize textarea
-    useEffect(() => {
-        if (textareaRef.current) {
-            textareaRef.current.style.height = "auto";
-            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-        }
-    }, [value]);
 
     const handleSubmit = async () => {
         if (!value.trim() || isSubmitting || disabled) return;
@@ -35,11 +26,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         try {
             await onSend(value.trim());
             setValue("");
-
-            // Reset textarea height
-            if (textareaRef.current) {
-                textareaRef.current.style.height = "auto";
-            }
         } catch (error) {
             console.error("Failed to send message:", error);
         } finally {
@@ -57,56 +43,49 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     return (
         <div className="border-t bg-background p-4">
-            <div className="mx-auto max-w-4xl">
-                <div className="relative flex items-end gap-2">
-                    {/* Textarea */}
-                    <div className="relative flex-1">
-                        <textarea
-                            ref={textareaRef}
-                            value={value}
-                            onChange={(e) => setValue(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder={placeholder}
-                            disabled={disabled || isSubmitting}
-                            rows={1}
-                            className={cn(
-                                "max-h-32 min-h-[44px] w-full resize-none rounded-lg border bg-muted/30 px-4 py-3 pr-12 text-sm",
-                                "placeholder:text-muted-foreground",
-                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                "disabled:cursor-not-allowed disabled:opacity-50"
-                            )}
-                        />
+            <div className="relative flex flex-col gap-2">
+                {/* Textarea */}
+                <textarea
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={placeholder}
+                    disabled={disabled || isSubmitting}
+                    rows={3}
+                    className={cn(
+                        "w-full resize-none rounded-lg border bg-muted/30 px-4 py-3 text-sm",
+                        "placeholder:text-muted-foreground",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "disabled:cursor-not-allowed disabled:opacity-50"
+                    )}
+                />
 
-                        {/* Attach button (optional) */}
-                        {/* <button
-              type="button"
-              disabled={disabled || isSubmitting}
-              className="absolute bottom-3 right-3 text-muted-foreground hover:text-foreground disabled:opacity-50"
-            >
-              <Paperclip className="size-4" />
-            </button> */}
-                    </div>
+                {/* Send button and helper text */}
+                <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                        Press <kbd className="rounded border bg-muted px-1.5 py-0.5">Shift</kbd> +{" "}
+                        <kbd className="rounded border bg-muted px-1.5 py-0.5">Enter</kbd> to send
+                    </p>
 
-                    {/* Send button */}
                     <Button
-                        size="icon"
+                        size="sm"
                         onClick={handleSubmit}
                         disabled={disabled || isSubmitting || !value.trim()}
-                        className="size-11 shrink-0"
+                        className="shrink-0"
                     >
                         {isSubmitting ? (
-                            <Loader2 className="size-4 animate-spin" />
+                            <>
+                                <Loader2 className="mr-2 size-4 animate-spin" />
+                                Sending...
+                            </>
                         ) : (
-                            <Send className="size-4" />
+                            <>
+                                <Send className="mr-2 size-4" />
+                                Send
+                            </>
                         )}
                     </Button>
                 </div>
-
-                {/* Helper text */}
-                <p className="mt-2 text-center text-xs text-muted-foreground">
-                    Press <kbd className="rounded border bg-muted px-1.5 py-0.5">Shift</kbd> +{" "}
-                    <kbd className="rounded border bg-muted px-1.5 py-0.5">Enter</kbd> to send
-                </p>
             </div>
         </div>
     );
