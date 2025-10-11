@@ -118,30 +118,83 @@ export const codeEngineTask = task({
         throw new Error("No actions to execute");
       }
 
-      // await prisma.sandboxLog.create({
-      //   data: {
-      //     executionId: execution.id,
-      //     type: "system",
-      //     content: `Parsed ${actions.length} actions from AI response.`,
-      //   }
-      // })
+      // ✅ Check if we should reuse an existing sandbox or create a new one
+      let sandbox: Sandbox;
+      let sandboxId: string;
+      const shouldReuseSandbox = sandboxConfig?.reuseSandbox && sandboxConfig?.sandboxId;
 
-      const sandbox = await Sandbox.create({
-        apiKey: process.env.E2B_API_KEY!,
-        timeoutMs: 3600000, // 1 hour timeout
-      })
+      if (shouldReuseSandbox) {
+        // ✅ RECONNECT to existing sandbox
+        logger.info("Reconnecting to existing sandbox", {
+          sandboxId: sandboxConfig.sandboxId,
+          conversationTurn: validated.data.conversationTurn
+        });
 
-      const sandboxId = sandbox.sandboxId
+        try {
+          sandbox = await Sandbox.connect(sandboxConfig.sandboxId!);
+          sandboxId = sandbox.sandboxId;
 
-      logger.info("Sandbox created", { sandboxId });
+          logger.info("Successfully reconnected to sandbox", { sandboxId });
 
-      await prisma.sandboxLog.create({
-        data: {
-          executionId: execution.id,
-          type: "system",
-          content: `E2B Sandbox created: ${sandboxId}`,
+          await prisma.sandboxLog.create({
+            data: {
+              executionId: execution.id,
+              type: "system",
+              content: `♻️ Reconnected to existing E2B Sandbox: ${sandboxId} (conversation turn ${validated.data.conversationTurn})`,
+            }
+          });
+        } catch (reconnectError) {
+          logger.warn("Failed to reconnect to sandbox, creating new one", {
+            error: reconnectError instanceof Error ? reconnectError.message : 'Unknown error',
+            sandboxId: sandboxConfig.sandboxId
+          });
+
+          await prisma.sandboxLog.create({
+            data: {
+              executionId: execution.id,
+              type: "stderr",
+              content: `⚠️ Could not reconnect to sandbox ${sandboxConfig.sandboxId}, creating a new one. Error: ${reconnectError instanceof Error ? reconnectError.message : 'Unknown error'}`,
+            }
+          });
+
+          // Fallback: create new sandbox
+          sandbox = await Sandbox.create({
+            apiKey: process.env.E2B_API_KEY!,
+            timeoutMs: sandboxConfig?.timeout || 3600000,
+          });
+          sandboxId = sandbox.sandboxId;
+
+          await prisma.sandboxLog.create({
+            data: {
+              executionId: execution.id,
+              type: "system",
+              content: `🆕 Created new E2B Sandbox: ${sandboxId} (fallback)`,
+            }
+          });
         }
-      })
+      } else {
+        // ✅ CREATE new sandbox
+        logger.info("Creating new sandbox", {
+          conversationTurn: validated.data.conversationTurn
+        });
+
+        sandbox = await Sandbox.create({
+          apiKey: process.env.E2B_API_KEY!,
+          timeoutMs: sandboxConfig?.timeout || 3600000,
+        });
+
+        sandboxId = sandbox.sandboxId;
+
+        logger.info("Sandbox created", { sandboxId });
+
+        await prisma.sandboxLog.create({
+          data: {
+            executionId: execution.id,
+            type: "system",
+            content: `🆕 Created new E2B Sandbox: ${sandboxId}`,
+          }
+        });
+      }
 
       logger.info("Executing artifact in sandbox...");
 
@@ -279,6 +332,22 @@ export const codeEngineTask = task({
           sandboxId
         }
       });
+
+      // ✅ Update project with active sandbox ID for future conversation turns
+      await prisma.project.update({
+        where: { id: projectId },
+        data: {
+          activeSandboxId: sandboxId,
+          currentExecutionId: execution.id,
+        }
+      });
+
+      logger.info("Updated project with sandbox info", {
+        projectId,
+        sandboxId,
+        executionId: execution.id
+      });
+
       const startTime = (await sandbox.getInfo()).startedAt;
       const endTime = (await sandbox.getInfo()).endAt;
 
