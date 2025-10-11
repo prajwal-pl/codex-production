@@ -630,3 +630,175 @@ export async function detectDevServerPort(sandbox: Sandbox, executionId: string)
     logger.warn("Could not detect dev server port");
     return null;
 }
+
+/**
+ * Fetch file contents from E2B sandbox with size limits and error handling
+ * 
+ * @param sandboxId - E2B sandbox ID to connect to
+ * @param filePaths - Array of file paths to read
+ * @param options - Configuration options
+ * @returns Array of file contents with metadata
+ */
+export async function fetchFileContentsFromSandbox(
+    sandboxId: string,
+    filePaths: string[],
+    options: {
+        maxFileSize?: number; // Max size in bytes (default: 50KB)
+        maxTotalSize?: number; // Max total size in bytes (default: 200KB)
+        maxFiles?: number; // Max number of files to read (default: 20)
+    } = {}
+): Promise<Array<{ path: string; content: string; size: number; truncated: boolean }>> {
+    const {
+        maxFileSize = 50 * 1024, // 50KB per file
+        maxTotalSize = 200 * 1024, // 200KB total
+        maxFiles = 20,
+    } = options;
+
+    const fileContents: Array<{ path: string; content: string; size: number; truncated: boolean }> = [];
+    let totalSize = 0;
+
+    logger.info("Fetching file contents from sandbox", {
+        sandboxId,
+        fileCount: filePaths.length,
+        maxFileSize,
+        maxTotalSize,
+    });
+
+    try {
+        // Connect to the sandbox
+        const sandbox = await Sandbox.connect(sandboxId);
+
+        // Limit number of files
+        const filesToRead = filePaths.slice(0, maxFiles);
+
+        if (filePaths.length > maxFiles) {
+            logger.warn(`Too many files, limiting to ${maxFiles}`, {
+                totalFiles: filePaths.length,
+                skipped: filePaths.length - maxFiles,
+            });
+        }
+
+        // Read each file
+        for (const filePath of filesToRead) {
+            try {
+                // Skip if we've exceeded total size limit
+                if (totalSize >= maxTotalSize) {
+                    logger.warn("Exceeded total size limit, skipping remaining files", {
+                        totalSize,
+                        maxTotalSize,
+                        remainingFiles: filesToRead.length - fileContents.length,
+                    });
+                    break;
+                }
+
+                // Skip common binary/large file types
+                const skipExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.mp4', '.mp3', '.pdf', '.zip'];
+                if (skipExtensions.some(ext => filePath.toLowerCase().endsWith(ext))) {
+                    logger.info(`Skipping binary file: ${filePath}`);
+                    fileContents.push({
+                        path: filePath,
+                        content: `// Binary file (${filePath.split('.').pop()?.toUpperCase()}) - content not included`,
+                        size: 0,
+                        truncated: false,
+                    });
+                    continue;
+                }
+
+                // ✅ Check if file exists first
+                const fileExists = await sandbox.files.exists(filePath);
+                if (!fileExists) {
+                    logger.warn(`File does not exist in sandbox: ${filePath}`);
+                    fileContents.push({
+                        path: filePath,
+                        content: `// File not found in sandbox: ${filePath}`,
+                        size: 0,
+                        truncated: false,
+                    });
+                    continue;
+                }
+
+                // Read file content
+                const content = await sandbox.files.read(filePath);
+                const size = Buffer.byteLength(content, 'utf8');
+
+                logger.info(`Read file successfully: ${filePath}`, {
+                    size,
+                    sizeKB: (size / 1024).toFixed(2),
+                });
+
+                let finalContent = content;
+                let truncated = false;
+
+                // Check file size and truncate if necessary
+                if (size > maxFileSize) {
+                    logger.warn(`File exceeds size limit, truncating: ${filePath}`, {
+                        size,
+                        maxFileSize,
+                    });
+
+                    // Truncate to max size and add notice
+                    finalContent = content.substring(0, maxFileSize) +
+                        `\n\n/* ... FILE TRUNCATED - Original size: ${(size / 1024).toFixed(2)}KB, showing first ${(maxFileSize / 1024).toFixed(2)}KB ... */`;
+                    truncated = true;
+                }
+
+                // Check if adding this file would exceed total size
+                const finalSize = Buffer.byteLength(finalContent, 'utf8');
+                if (totalSize + finalSize > maxTotalSize) {
+                    logger.warn("Adding this file would exceed total size limit, skipping", {
+                        filePath,
+                        fileSize: finalSize,
+                        currentTotal: totalSize,
+                        maxTotalSize,
+                    });
+                    break;
+                }
+
+                fileContents.push({
+                    path: filePath,
+                    content: finalContent,
+                    size: finalSize,
+                    truncated,
+                });
+
+                totalSize += finalSize;
+
+                logger.info(`Successfully read file: ${filePath}`, {
+                    size: finalSize,
+                    truncated,
+                    totalSize,
+                });
+
+            } catch (fileError) {
+                logger.warn(`Failed to read file: ${filePath}`, {
+                    error: fileError instanceof Error ? fileError.message : 'Unknown error',
+                });
+
+                // Include placeholder for failed files
+                fileContents.push({
+                    path: filePath,
+                    content: `// Could not read file: ${fileError instanceof Error ? fileError.message : 'Unknown error'}`,
+                    size: 0,
+                    truncated: false,
+                });
+            }
+        }
+
+        logger.info("File content fetching complete", {
+            filesRead: fileContents.length,
+            totalSize,
+            truncatedCount: fileContents.filter(f => f.truncated).length,
+        });
+
+        return fileContents;
+
+    } catch (sandboxError) {
+        logger.error("Failed to connect to sandbox for file reading", {
+            sandboxId,
+            error: sandboxError instanceof Error ? sandboxError.message : 'Unknown error',
+        });
+
+        // Return empty array if sandbox connection fails
+        return [];
+    }
+}

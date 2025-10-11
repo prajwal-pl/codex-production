@@ -164,6 +164,7 @@ model CodeExecution {
   parentExecutionId String? // Link to previous execution in conversation
   changedFiles      Json? // Array of {path, action: "create"|"update"|"delete"}
   diffSummary       String?  @db.Text // Human-readable summary of changes
+  fileSnapshots     Json? // ✅ NEW: Store file contents at this point in conversation for debugging/context
   prompts           Prompt[] // Prompts linked to this execution
 
   // Sandbox Execution

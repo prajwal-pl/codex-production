@@ -68,6 +68,7 @@ export const createProjectHandler = async (req: Request, res: Response) => {
       messages,
       conversationTurn: 1,
       existingFiles: [],
+      fileContents: [], // ✅ Empty for first message
       sandboxConfig: {
         template: "NODE_22", // or custom template ID
         timeout: 300000, // 5 minutes
@@ -470,6 +471,108 @@ export const continueConversationHandler = async (req: Request, res: Response) =
     const existingFiles = lastExecution?.createdFiles || [];
     const conversationTurn = (lastExecution?.conversationTurn || 0) + 1;
 
+    // ✅ NEW: Fetch file contents - PRIORITIZE DATABASE OVER SANDBOX
+    let fileContents: Array<{ path: string; content: string; size: number; truncated: boolean }> = [];
+
+    if (lastExecution && existingFiles.length > 0) {
+      console.log(`📂 Fetching file contents for conversation turn ${conversationTurn}`, {
+        executionId: lastExecution.id,
+        fileCount: existingFiles.length,
+        files: existingFiles.slice(0, 5),
+      });
+
+      try {
+        // ✅ STRATEGY 1: Get file contents from CodeArtifact table (most reliable)
+        const artifacts = await prisma.codeArtifact.findMany({
+          where: {
+            executionId: lastExecution.id,
+          },
+          select: {
+            path: true,
+            content: true,
+            size: true,
+          },
+        });
+
+        if (artifacts.length > 0) {
+          console.log(`✅ Found ${artifacts.length} files in database (CodeArtifact)`);
+
+          // Convert artifacts to fileContents format
+          fileContents = artifacts
+            .filter(a => existingFiles.includes(a.path)) // Only include files that should exist
+            .slice(0, 20) // Limit to 20 files
+            .map(artifact => ({
+              path: artifact.path,
+              content: artifact.content,
+              size: artifact.size,
+              truncated: artifact.size > (50 * 1024), // Mark as truncated if > 50KB
+            }));
+
+          // Truncate large files
+          fileContents = fileContents.map(file => {
+            if (file.size > (50 * 1024)) {
+              return {
+                ...file,
+                content: file.content.substring(0, 50 * 1024) +
+                  `\n\n/* ... FILE TRUNCATED - Original size: ${(file.size / 1024).toFixed(2)}KB ... */`,
+                size: 50 * 1024,
+                truncated: true,
+              };
+            }
+            return file;
+          });
+
+          // Enforce total size limit (200KB)
+          let totalSize = 0;
+          const maxTotalSize = 200 * 1024;
+          fileContents = fileContents.filter(file => {
+            if (totalSize + file.size <= maxTotalSize) {
+              totalSize += file.size;
+              return true;
+            }
+            return false;
+          });
+
+          console.log(`✅ Prepared ${fileContents.length} file contents from database`, {
+            totalSize,
+            totalSizeKB: (totalSize / 1024).toFixed(2),
+            truncatedFiles: fileContents.filter(f => f.truncated).length,
+            filesIncluded: fileContents.map(f => `${f.path} (${(f.size / 1024).toFixed(2)}KB)`),
+          });
+        } else {
+          console.log(`⚠️  No artifacts found in database, falling back to sandbox reading`);
+
+          // ✅ STRATEGY 2: Fallback to sandbox reading (if database doesn't have files)
+          if (project.activeSandboxId) {
+            const { fetchFileContentsFromSandbox } = await import("../lib/utils.js");
+
+            fileContents = await fetchFileContentsFromSandbox(
+              project.activeSandboxId,
+              existingFiles,
+              {
+                maxFileSize: 50 * 1024,
+                maxTotalSize: 200 * 1024,
+                maxFiles: 20,
+              }
+            );
+
+            console.log(`${fileContents.length > 0 ? '✅' : '❌'} Fetched ${fileContents.length} files from sandbox`);
+          }
+        }
+
+      } catch (fetchError) {
+        console.error("❌ Failed to fetch file contents", {
+          error: fetchError instanceof Error ? fetchError.message : 'Unknown error',
+          stack: fetchError instanceof Error ? fetchError.stack : undefined,
+        });
+      }
+    } else {
+      console.log("⚠️  No previous execution or files to fetch", {
+        hasLastExecution: !!lastExecution,
+        fileCount: existingFiles.length,
+      });
+    }
+
     // Build conversation history (last 10 messages for context)
     const conversationHistory = project.prompts
       .slice(-10)
@@ -505,6 +608,7 @@ export const continueConversationHandler = async (req: Request, res: Response) =
       conversationTurn,
       parentExecutionId: lastExecution?.id,
       existingFiles,
+      fileContents, // ✅ NEW: Include actual file contents for context
       sandboxConfig: {
         reuseSandbox: true,
         ...(project.activeSandboxId && { sandboxId: project.activeSandboxId }),

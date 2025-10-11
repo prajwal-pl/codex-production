@@ -76,9 +76,23 @@ export const codeEngineTask = task({
 
       logger.info("🤖 Generating code with GitHub Models API (GPT-4.1)...");
 
+      // ✅ Build conversation context for system prompt
+      const conversationContext = validated.data.conversationTurn > 1 ? {
+        conversationTurn: validated.data.conversationTurn,
+        existingFiles: validated.data.existingFiles || [],
+        fileContents: validated.data.fileContents || [], // ✅ NEW: Pass file contents to system prompt
+      } : undefined;
+
+      logger.info("Conversation context", {
+        turn: validated.data.conversationTurn,
+        existingFiles: validated.data.existingFiles?.length || 0,
+        fileContents: validated.data.fileContents?.length || 0,
+        totalFileSize: validated.data.fileContents?.reduce((sum, f) => sum + (f.size || 0), 0) || 0,
+      });
+
       // Convert ModelMessage[] to GitHubModelsMessage[]
       const githubMessages: GitHubModelsMessage[] = [
-        { role: "system", content: getSystemPrompt() },
+        { role: "system", content: getSystemPrompt(conversationContext as any) }, // ✅ Pass conversation context
         ...(messages as ModelMessage[]).map(m => ({
           role: m.role as "user" | "assistant",
           content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),

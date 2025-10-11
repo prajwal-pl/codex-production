@@ -377,10 +377,54 @@ export const getSystemPrompt = (
     
 ${conversationContext ? `
     <conversation_context>
-      - Conversation Turn: ${conversationContext.conversationTurn}
-      - Existing Files: ${conversationContext.existingFiles.length > 0 ? conversationContext.existingFiles.slice(0, 20).join(", ") + (conversationContext.existingFiles.length > 20 ? `, and ${conversationContext.existingFiles.length - 20} more...` : "") : "None (fresh project)"}
-      ${conversationContext.previousError ? `- Previous Error: ${conversationContext.previousError}` : ""}
-      ${conversationContext.lastChanges ? `- Last Changes: Created ${conversationContext.lastChanges.created.length}, Updated ${conversationContext.lastChanges.updated.length}, Deleted ${conversationContext.lastChanges.deleted.length}` : ""}
+      <turn_number>${conversationContext.conversationTurn}</turn_number>
+      
+      ${conversationContext.fileContents && conversationContext.fileContents.length > 0 ? `
+      <existing_project_files>
+        <summary>
+          The project currently has ${conversationContext.existingFiles.length} files.
+          Below are the contents of the key files (${conversationContext.fileContents.length} files shown):
+        </summary>
+        
+${conversationContext.fileContents.map(file => `
+        <file path="${file.path}"${file.truncated ? ' truncated="true"' : ''}>
+${file.content}
+        </file>
+`).join('')}
+        
+        <instructions>
+          - These files show the CURRENT state of the project
+          - When modifying, ONLY change what the user requests
+          - Preserve all other code exactly as shown
+          - Use UPDATE action for existing files, CREATE only for new files
+          - If a file is not shown above but exists in the file list, it hasn't changed recently
+        </instructions>
+      </existing_project_files>
+      ` : `
+      <existing_files>
+        <file_list>
+          ${conversationContext.existingFiles.length > 0
+        ? conversationContext.existingFiles.slice(0, 20).join("\n          ") +
+        (conversationContext.existingFiles.length > 20 ? `\n          ... and ${conversationContext.existingFiles.length - 20} more files` : "")
+        : "None (fresh project)"}
+        </file_list>
+        <note>File contents not available - working with file names only</note>
+      </existing_files>
+      `}
+      
+      ${conversationContext.previousError ? `
+      <previous_error>
+${conversationContext.previousError}
+      </previous_error>
+      ` : ""}
+      
+      ${conversationContext.lastChanges ? `
+      <last_changes>
+        - Created: ${conversationContext.lastChanges.created.length} files
+        - Updated: ${conversationContext.lastChanges.updated.length} files
+        - Deleted: ${conversationContext.lastChanges.deleted.length} files
+      </last_changes>
+      ` : ""}
     </conversation_context>
 
     ${!isFirstTurn ? `
@@ -388,7 +432,7 @@ ${conversationContext ? `
     You are modifying an EXISTING project. The user is asking you to make changes to their application.
     
     RULES FOR MODIFICATIONS:
-    1. **ANALYZE BEFORE MODIFYING** - Understand the existing project structure first
+    1. **ANALYZE BEFORE MODIFYING** - ${conversationContext.fileContents && conversationContext.fileContents.length > 0 ? 'Review the file contents shown above to understand the current state' : 'Consider the existing file structure'}
     2. **MINIMAL CHANGES** - Only modify files that need changes for the requested feature/fix
     3. **COMPLETE FILE CONTENTS** - When modifying a file, provide the ENTIRE updated file (not diffs)
     4. **PRESERVE FUNCTIONALITY** - Keep existing features working unless asked to remove/change
