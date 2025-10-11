@@ -9,3 +9,47 @@ export const authSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6).max(100),
 });
+
+// Editor types
+export interface FileItem {
+  path: string;
+  type: 'file' | 'directory';
+  children?: FileItem[];
+}
+
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+  metadata?: {
+    filesChanged?: string[];
+    executionId?: string;
+  };
+}
+
+export interface Project {
+  id: string;
+  title: string;
+  description?: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  activeSandboxId?: string;
+  currentExecutionId?: string;
+  previewUrl?: string;
+}
+
+export interface CodeExecution {
+  id: string;
+  projectId: string;
+  status: 'PENDING' | 'RUNNING' | 'STREAMING' | 'EXECUTING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  generatedCode?: string;
+  stdout?: string;
+  stderr?: string;
+  error?: string;
+  previewUrl?: string;
+  createdFiles: string[];
+  createdAt: string;
+  completedAt?: string;
+}

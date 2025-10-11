@@ -127,3 +127,66 @@ export const createProject = async (
   );
   return res.data;
 };
+
+// Get project by ID
+export const getProject = async (projectId: string) => {
+  const token = getToken();
+  const res = await apiClient.worker.get(`/api/projects/${projectId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.data;
+};
+
+// Get project messages/prompts
+export const getProjectMessages = async (projectId: string) => {
+  const token = getToken();
+  const res = await apiClient.worker.get(`/api/projects/${projectId}/messages`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.data;
+};
+
+// Continue conversation
+export type ContinueConversationRequest = {
+  projectId: string;
+  message: string;
+};
+
+export type ContinueConversationResponse = {
+  executionId: string;
+  message: string;
+};
+
+export const continueConversation = async (
+  payload: ContinueConversationRequest
+): Promise<ContinueConversationResponse> => {
+  const token = getToken();
+  const res = await apiClient.worker.post<ContinueConversationResponse>(
+    "/api/projects/continue",
+    payload,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return res.data;
+};
+
+// Get project files
+export const getProjectFiles = async (projectId: string): Promise<string[]> => {
+  const token = getToken();
+  const res = await apiClient.worker.get<string[]>(
+    `/api/projects/${projectId}/files`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return res.data;
+};
