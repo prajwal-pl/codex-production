@@ -2,25 +2,20 @@
 
 import React, { useEffect } from "react";
 import {
-  IconCamera,
   IconChartBar,
   IconDashboard,
   IconDatabase,
-  IconFileAi,
   IconFileDescription,
-  IconFileWord,
   IconFolder,
-  IconHelp,
-  IconInnerShadowTop,
   IconListDetails,
-  IconReport,
-  IconSearch,
   IconSettings,
+  IconTerminal,
   IconUsers,
 } from "@tabler/icons-react";
 
 import { NavDocuments } from "@/components/global/landing/nav-documents";
 import { NavMain } from "@/components/global/landing/nav-main";
+import { NavProjects } from "@/components/global/landing/nav-projects";
 import { NavSecondary } from "@/components/global/landing/nav-secondary";
 import { NavUser } from "@/components/global/landing/nav-user";
 import {
@@ -32,7 +27,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Terminal, TerminalSquare, TerminalSquareIcon } from "lucide-react";
+import { Terminal } from "lucide-react";
 import { getProfile } from "@/lib/api-client";
 import { useSession } from "@/hooks/useSession";
 
@@ -48,97 +43,55 @@ const data = {
       url: "/workspace",
       icon: IconListDetails,
     },
-    // {
-    //   title: "Practice",
-    //   url: "/practice",
-    //   icon: TerminalSquareIcon,
-    // },
+    {
+      title: "Practice",
+      url: "/practice",
+      icon: IconTerminal,
+    },
     {
       title: "Projects",
       url: "/editor",
       icon: IconFolder,
     },
     {
-      title: "Team",
-      url: "#",
+      title: "Teams",
+      url: "/teams",
       icon: IconUsers,
-    },
+    }
   ],
-  navClouds: [
+  projects: [
     {
-      title: "Capture",
-      icon: IconCamera,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
+      id: "proj_1",
+      name: "E-commerce Store",
     },
     {
-      title: "Proposal",
-      icon: IconFileDescription,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
+      id: "proj_2",
+      name: "Portfolio Website",
     },
     {
-      title: "Prompts",
-      icon: IconFileAi,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
+      id: "proj_3",
+      name: "Task Manager App",
+    },
+    {
+      id: "proj_4",
+      name: "Landing Page",
     },
   ],
   navSecondary: [
     {
+      title: "Community",
+      url: "/community",
+      icon: IconUsers,
+    },
+    {
+      title: "Profile",
+      url: "/profile",
+      icon: IconChartBar,
+    },
+    {
       title: "Settings",
       url: "/settings",
       icon: IconSettings,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: IconHelp,
-    },
-  ],
-  documents: [
-    {
-      name: "Community",
-      url: "/community",
-      icon: IconDatabase,
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: IconReport,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: IconFileWord,
     },
   ],
 };
@@ -169,7 +122,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
+        <NavProjects projects={data.projects} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
