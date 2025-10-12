@@ -199,22 +199,51 @@ export const codeEngineTask = task({
 
       if (shouldReuseSandbox) {
         // ✅ RECONNECT to existing sandbox
-        logger.info("Reconnecting to existing sandbox", {
+        logger.info("Attempting to reconnect to existing sandbox", {
           sandboxId: sandboxConfig.sandboxId,
           conversationTurn: validated.data.conversationTurn
         });
 
         try {
           sandbox = await Sandbox.connect(sandboxConfig.sandboxId!);
+
+          // ✅ Check sandbox age/health
+          const info = await sandbox.getInfo();
+          const createdAt = new Date(info.startedAt!).getTime();
+          const timeoutMs = 3600000; // 1 hour
+          const expiresAt = createdAt + timeoutMs;
+          const now = Date.now();
+          const remainingMs = expiresAt - now;
+
+          logger.info("Sandbox info", {
+            sandboxId: sandbox.sandboxId,
+            createdAt: info.startedAt,
+            remainingMinutes: Math.floor(remainingMs / 60000),
+            cpuCount: info.cpuCount,
+            memoryMB: info.memoryMB,
+          });
+
+          // ✅ If sandbox is close to timeout (< 10 min), create new one
+          if (remainingMs < 10 * 60 * 1000) {
+            logger.warn("Sandbox close to timeout, creating new one", {
+              sandboxId: sandboxConfig.sandboxId,
+              remainingMinutes: Math.floor(remainingMs / 60000)
+            });
+            throw new Error("Sandbox expiring soon - creating fresh one");
+          }
+
           sandboxId = sandbox.sandboxId;
 
-          logger.info("Successfully reconnected to sandbox", { sandboxId });
+          logger.info("Successfully reconnected to sandbox", {
+            sandboxId,
+            remainingMinutes: Math.floor(remainingMs / 60000)
+          });
 
           await prisma.sandboxLog.create({
             data: {
               executionId: execution.id,
               type: "system",
-              content: `♻️ Reconnected to existing E2B Sandbox: ${sandboxId} (conversation turn ${validated.data.conversationTurn})`,
+              content: `♻️ Reconnected to existing E2B Sandbox: ${sandboxId} (conversation turn ${validated.data.conversationTurn}, ~${Math.floor(remainingMs / 60000)} min remaining)`,
             }
           });
         } catch (reconnectError) {
@@ -227,7 +256,7 @@ export const codeEngineTask = task({
             data: {
               executionId: execution.id,
               type: "stderr",
-              content: `⚠️ Could not reconnect to sandbox ${sandboxConfig.sandboxId}, creating a new one. Error: ${reconnectError instanceof Error ? reconnectError.message : 'Unknown error'}`,
+              content: `⚠️ Could not reconnect to sandbox ${sandboxConfig.sandboxId}, creating a new one. Reason: ${reconnectError instanceof Error ? reconnectError.message : 'Unknown error'}`,
             }
           });
 
@@ -238,13 +267,21 @@ export const codeEngineTask = task({
           });
           sandboxId = sandbox.sandboxId;
 
+          // ✅ IMMEDIATELY update project with new sandbox ID
+          await prisma.project.update({
+            where: { id: projectId },
+            data: { activeSandboxId: sandboxId }
+          });
+
           await prisma.sandboxLog.create({
             data: {
               executionId: execution.id,
               type: "system",
-              content: `🆕 Created new E2B Sandbox: ${sandboxId} (fallback)`,
+              content: `🆕 Created new E2B Sandbox: ${sandboxId} (fallback after reconnect failure)`,
             }
           });
+
+          logger.info("Created and registered new sandbox after reconnect failure", { sandboxId });
         }
       } else {
         // ✅ CREATE new sandbox
@@ -439,6 +476,38 @@ export const codeEngineTask = task({
       })
 
       logger.info("Code execution completed", { executionId: execution.id, sandboxId, devServerUrl, createdFiles: executionResult.createdFiles, errors: executionResult.errors });
+
+      // ✅ Optional: Kill sandbox if keepAlive is false
+      if (sandboxConfig?.keepAlive === false) {
+        logger.info("Killing sandbox (keepAlive=false)", { sandboxId });
+        try {
+          await sandbox.kill();
+          await prisma.sandboxLog.create({
+            data: {
+              executionId: execution.id,
+              type: "system",
+              content: `🔴 Sandbox killed (keepAlive=false): ${sandboxId}`,
+            }
+          });
+
+          // Clear active sandbox from project
+          await prisma.project.update({
+            where: { id: projectId },
+            data: { activeSandboxId: null }
+          });
+        } catch (killError) {
+          logger.warn("Failed to kill sandbox", {
+            sandboxId,
+            error: killError instanceof Error ? killError.message : 'Unknown error'
+          });
+        }
+      } else {
+        logger.info("Keeping sandbox alive (keepAlive=true)", {
+          sandboxId,
+          projectId,
+          message: "Sandbox will remain available for future conversation turns"
+        });
+      }
 
       return {
         success: true,

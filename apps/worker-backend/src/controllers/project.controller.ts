@@ -70,8 +70,8 @@ export const createProjectHandler = async (req: Request, res: Response) => {
       existingFiles: [],
       fileContents: [], // ✅ Empty for first message
       sandboxConfig: {
-        template: "NODE_22", // or custom template ID
-        timeout: 300000, // 5 minutes
+        template: "NODE_22",
+        timeout: 3600000, // 1 hour (was 300000 - fixed!)
         keepAlive: true,
         reuseSandbox: false,
       },
@@ -599,6 +599,36 @@ export const continueConversationHandler = async (req: Request, res: Response) =
       role: "user" as const,
       content: message,
     });
+
+    // ✅ CRITICAL: Check for in-progress executions to prevent multiple sandboxes
+    const inProgressExecution = await prisma.codeExecution.findFirst({
+      where: {
+        projectId,
+        status: {
+          in: [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.STREAMING, JobStatus.EXECUTING]
+        }
+      },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+      }
+    });
+
+    if (inProgressExecution) {
+      console.warn("Execution already in progress, rejecting concurrent request", {
+        projectId,
+        existingExecutionId: inProgressExecution.id,
+        status: inProgressExecution.status,
+      });
+
+      return res.status(409).json({
+        success: false,
+        message: "Another execution is already in progress. Please wait for it to complete.",
+        executionId: inProgressExecution.id,
+        status: inProgressExecution.status,
+      });
+    }
 
     // Trigger code execution with conversation context
     const payload = {
