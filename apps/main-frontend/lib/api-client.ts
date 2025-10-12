@@ -1,6 +1,17 @@
 import axios from "axios";
 import { authSchema } from "@/types";
 import { z } from "zod";
+import type {
+  CreateProjectRequest,
+  CreateProjectResponse,
+  ContinueConversationRequest,
+  ContinueConversationResponse,
+  GetConversationResponse,
+  GetExecutionStatusResponse,
+  GetExecutionLogsResponse,
+  GetProjectExecutionsResponse,
+  CancelExecutionResponse,
+} from "@/types/api";
 
 const primaryBackendClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_PRIMARY_BACKEND_URL,
@@ -100,18 +111,13 @@ export const apiClient = {
   websocket: websocketClient,
 };
 
-// Worker endpoints
-export type CreateProjectRequest = {
-  prompt: string;
-  projectId?: string;
-};
+// ============================================================================
+// Worker Backend API - Project & Execution Management
+// ============================================================================
 
-export type CreateProjectResponse = {
-  projectId: string;
-  message: string;
-  content: string;
-};
-
+/**
+ * Create a new project and start code generation
+ */
 export const createProject = async (
   payload: CreateProjectRequest
 ): Promise<CreateProjectResponse> => {
@@ -128,45 +134,34 @@ export const createProject = async (
   return res.data;
 };
 
-// Get project by ID
-export const getProject = async (projectId: string) => {
+/**
+ * Get full conversation history and project metadata
+ */
+export const getConversation = async (
+  projectId: string
+): Promise<GetConversationResponse> => {
   const token = getToken();
-  const res = await apiClient.worker.get(`/api/projects/${projectId}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const res = await apiClient.worker.get<GetConversationResponse>(
+    `/api/projects/${projectId}/conversation`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
   return res.data;
 };
 
-// Get project messages/prompts
-export const getProjectMessages = async (projectId: string) => {
-  const token = getToken();
-  const res = await apiClient.worker.get(`/api/projects/${projectId}/messages`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  return res.data;
-};
-
-// Continue conversation
-export type ContinueConversationRequest = {
-  projectId: string;
-  message: string;
-};
-
-export type ContinueConversationResponse = {
-  executionId: string;
-  message: string;
-};
-
+/**
+ * Continue an existing conversation with a new message
+ */
 export const continueConversation = async (
+  projectId: string,
   payload: ContinueConversationRequest
 ): Promise<ContinueConversationResponse> => {
   const token = getToken();
   const res = await apiClient.worker.post<ContinueConversationResponse>(
-    "/api/projects/continue",
+    `/api/projects/${projectId}/conversation`,
     payload,
     {
       headers: {
@@ -177,11 +172,91 @@ export const continueConversation = async (
   return res.data;
 };
 
-// Get project files
-export const getProjectFiles = async (projectId: string): Promise<string[]> => {
+/**
+ * Get detailed status of a specific execution
+ */
+export const getExecutionStatus = async (
+  executionId: string
+): Promise<GetExecutionStatusResponse> => {
   const token = getToken();
-  const res = await apiClient.worker.get<string[]>(
-    `/api/projects/${projectId}/files`,
+  const res = await apiClient.worker.get<GetExecutionStatusResponse>(
+    `/api/projects/execution/${executionId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return res.data;
+};
+
+/**
+ * Get paginated logs for an execution
+ */
+export const getExecutionLogs = async (
+  executionId: string,
+  after?: string
+): Promise<GetExecutionLogsResponse> => {
+  const token = getToken();
+  const res = await apiClient.worker.get<GetExecutionLogsResponse>(
+    `/api/projects/execution/${executionId}/logs`,
+    {
+      params: { after },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return res.data;
+};
+
+/**
+ * Get all executions for a project
+ */
+export const getProjectExecutions = async (
+  projectId: string
+): Promise<GetProjectExecutionsResponse> => {
+  const token = getToken();
+  const res = await apiClient.worker.get<GetProjectExecutionsResponse>(
+    `/api/projects/${projectId}/executions`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return res.data;
+};
+
+/**
+ * Download a specific artifact file
+ */
+export const downloadArtifact = async (
+  artifactId: string
+): Promise<Blob> => {
+  const token = getToken();
+  const res = await apiClient.worker.get<Blob>(
+    `/api/projects/artifact/${artifactId}/download`,
+    {
+      responseType: 'blob',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return res.data;
+};
+
+/**
+ * Cancel a running execution
+ */
+export const cancelExecution = async (
+  executionId: string
+): Promise<CancelExecutionResponse> => {
+  const token = getToken();
+  const res = await apiClient.worker.post<CancelExecutionResponse>(
+    `/api/projects/execution/${executionId}/cancel`,
+    {},
     {
       headers: {
         Authorization: `Bearer ${token}`,

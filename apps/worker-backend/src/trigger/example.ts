@@ -1,6 +1,6 @@
 import { logger, task, wait } from "@trigger.dev/sdk/v3";
 import { type ModelMessage } from "ai";
-import { getSystemPrompt } from "../lib/systemPrompt.js";
+import { getCondensedSystemPrompt } from "../lib/systemPromptCondensed.js";
 import { CodeExecutionPayloadSchema } from "../types/index.js";
 import prisma from "@repo/db/client";
 import { JobStatus } from "@repo/db/generated/prisma";
@@ -56,7 +56,7 @@ export const codeEngineTask = task({
           projectId,
           triggerJobId: jobId,
           status: JobStatus.PENDING,
-          aiModel: "github/openai/gpt-4.1",
+          aiModel: "github/gpt-4.1",
           sandboxTemplate: sandboxConfig?.template || "NODE_22",
         },
         update: {
@@ -80,19 +80,75 @@ export const codeEngineTask = task({
       const conversationContext = validated.data.conversationTurn > 1 ? {
         conversationTurn: validated.data.conversationTurn,
         existingFiles: validated.data.existingFiles || [],
-        fileContents: validated.data.fileContents || [], // ✅ NEW: Pass file contents to system prompt
+        fileContents: validated.data.fileContents || [],
       } : undefined;
+
+      // ✅ Process and truncate file contents to fit 8K token limit
+      const processedFiles = conversationContext?.fileContents ? (() => {
+        // Estimate tokens: ~4 chars per token
+        const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+
+        // Prioritize important files
+        const sortedFiles = [...conversationContext.fileContents].sort((a, b) => {
+          const getImportance = (path: string) => {
+            if (path.includes('package.json')) return 0;
+            if (path.endsWith('.config.js') || path.endsWith('.config.ts')) return 1;
+            if (path.includes('layout.') || path.includes('_app.')) return 2;
+            if (path.includes('page.') || path.includes('index.')) return 3;
+            return 4;
+          };
+          return getImportance(a.path) - getImportance(b.path);
+        });
+
+        const MAX_FILE_TOKENS = 400; // Per file
+        const MAX_TOTAL_TOKENS = 3000; // Total budget
+        const maxFiles = 8;
+
+        const truncateFile = (content: string, maxTokens: number) => {
+          const tokens = estimateTokens(content);
+          if (tokens <= maxTokens) return { content, truncated: false };
+
+          const maxChars = maxTokens * 4;
+          const half = Math.floor(maxChars / 2);
+          return {
+            content: content.slice(0, half) + '\n\n...[truncated]...\n\n' + content.slice(-half),
+            truncated: true
+          };
+        };
+
+        let totalTokens = 0;
+        const result = [];
+
+        for (const file of sortedFiles.slice(0, maxFiles)) {
+          if (totalTokens >= MAX_TOTAL_TOKENS) break;
+
+          const { content, truncated } = truncateFile(file.content, MAX_FILE_TOKENS);
+          result.push({ path: file.path, content, truncated });
+          totalTokens += estimateTokens(content);
+        }
+
+        logger.info("File content processing", {
+          originalFiles: conversationContext.fileContents.length,
+          includedFiles: result.length,
+          estimatedTokens: totalTokens,
+        });
+
+        return result;
+      })() : undefined;
 
       logger.info("Conversation context", {
         turn: validated.data.conversationTurn,
         existingFiles: validated.data.existingFiles?.length || 0,
-        fileContents: validated.data.fileContents?.length || 0,
-        totalFileSize: validated.data.fileContents?.reduce((sum, f) => sum + (f.size || 0), 0) || 0,
+        originalFileContents: validated.data.fileContents?.length || 0,
+        processedFileContents: processedFiles?.length || 0,
       });
 
-      // Convert ModelMessage[] to GitHubModelsMessage[]
+      // Convert ModelMessage[] to GitHubModelsMessage[] with condensed system prompt
       const githubMessages: GitHubModelsMessage[] = [
-        { role: "system", content: getSystemPrompt(conversationContext as any) }, // ✅ Pass conversation context
+        {
+          role: "system",
+          content: getCondensedSystemPrompt("/home/project", conversationContext, processedFiles)
+        },
         ...(messages as ModelMessage[]).map(m => ({
           role: m.role as "user" | "assistant",
           content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
@@ -101,9 +157,9 @@ export const codeEngineTask = task({
 
       // Generate with GitHub Models API
       const result = await generateWithGitHubModels(githubMessages, {
-        model: GITHUB_MODELS.GPT_4_1,
+        model: GITHUB_MODELS.GPT_4_1, // GPT-4.1: 1,049K input, 33K output - handles massive context!
         temperature: 0.7,
-        maxTokens: 8192, // GPT-4.1 supports larger context
+        maxTokens: 16384, // Use plenty of output tokens for large code generation
         topP: 1.0,
       });
 

@@ -1,30 +1,49 @@
 "use client";
 
 import React from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { createProject } from "@/lib/api-client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LoadingState } from "@/components/global/editor/loading-state";
 
 export const EditorHero: React.FC = () => {
     const router = useRouter();
     const [value, setValue] = React.useState("");
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [error, setError] = React.useState<string | null>(null);
+    const [loadingStatus, setLoadingStatus] = React.useState<"INITIALIZING" | "NAVIGATING" | null>(null);
 
     const handleSubmit = async () => {
         if (!value.trim() || isSubmitting) return;
 
         setIsSubmitting(true);
+        setError(null);
+        setLoadingStatus("INITIALIZING");
+
         try {
             const res = await createProject({
                 prompt: value,
             });
-            router.push(`/editor/${res.projectId}`);
-        } catch (error) {
-            console.error("Failed to create project:", error);
-        } finally {
+
+            // Show navigation state before redirecting
+            setLoadingStatus("NAVIGATING");
+
+            // Small delay to show navigation state
+            setTimeout(() => {
+                router.push(`/editor/${res.projectId}`);
+            }, 500);
+
+        } catch (err) {
+            console.error("Failed to create project:", err);
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Failed to create project. Please try again."
+            );
             setIsSubmitting(false);
-            setValue("");
+            setLoadingStatus(null);
         }
     };
 
@@ -34,6 +53,21 @@ export const EditorHero: React.FC = () => {
             handleSubmit();
         }
     };
+
+    // Show loading state while creating project
+    if (loadingStatus) {
+        return (
+            <LoadingState
+                status={loadingStatus}
+                message={
+                    loadingStatus === "INITIALIZING"
+                        ? "Creating your project..."
+                        : "Taking you to your editor..."
+                }
+                showSteps={loadingStatus === "INITIALIZING"}
+            />
+        );
+    }
 
     return (
         <section className="flex h-[calc(100vh-var(--header-height,0px)-2rem)] w-full items-center justify-center px-4 md:h-[calc(100vh-var(--header-height,0px)-3rem)]">
@@ -51,6 +85,14 @@ export const EditorHero: React.FC = () => {
                         Describe your idea and watch it come to life. Create apps and websites through conversation.
                     </p>
                 </div>
+
+                {/* Error Alert */}
+                {error && (
+                    <Alert variant="destructive">
+                        <AlertCircle className="size-4" />
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                )}
 
                 {/* Input Card */}
                 <div className="rounded-lg border bg-card shadow-sm">

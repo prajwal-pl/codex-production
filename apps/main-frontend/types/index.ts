@@ -53,3 +53,19 @@ export interface CodeExecution {
   createdAt: string;
   completedAt?: string;
 }
+
+// Re-export API types for convenience
+export type {
+  JobStatus,
+  PromptRole,
+  CreateProjectRequest,
+  CreateProjectResponse,
+  ContinueConversationRequest,
+  ContinueConversationResponse,
+  ConversationPrompt,
+  ConversationData,
+  GetConversationResponse,
+  ExecutionSummary,
+  ExecutionDetails,
+  GetExecutionStatusResponse,
+} from './api';

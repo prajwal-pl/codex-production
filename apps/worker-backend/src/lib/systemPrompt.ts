@@ -1,6 +1,36 @@
 import { stripIndents } from "./stripIndents.js";
 import type { ConversationContext } from "../types/index.js";
 
+/**
+ * Estimate token count (rough approximation: 1 token ≈ 4 characters)
+ */
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * Truncate file content if it exceeds max tokens
+ */
+function truncateFileContent(content: string, maxTokens: number = 2000): { content: string; wasTruncated: boolean } {
+  const estimatedTokens = estimateTokens(content);
+
+  if (estimatedTokens <= maxTokens) {
+    return { content, wasTruncated: false };
+  }
+
+  // Keep roughly maxTokens worth of characters (4 chars per token)
+  const maxChars = maxTokens * 4;
+  const halfChars = Math.floor(maxChars / 2);
+
+  // Show beginning and end of file
+  const truncated =
+    content.slice(0, halfChars) +
+    `\n\n... [Middle section truncated - ${estimatedTokens - maxTokens} tokens omitted] ...\n\n` +
+    content.slice(-halfChars);
+
+  return { content: truncated, wasTruncated: true };
+}
+
 export const BASE_PROMPT =
   "You are an expert full-stack developer who writes PRODUCTION-READY, FUNCTIONAL code that follows industry best practices.\n\nCRITICAL RULES:\n- ALWAYS write complete, working code - NO placeholders, NO comments like '// rest of the code'\n- EVERY component must be properly imported and exported\n- EVERY function must have a complete implementation\n- ALL code must be ready to run without modifications\n- Follow the EXACT syntax and patterns required by each framework\n\nFor all designs, create beautiful, modern, fully-featured applications worthy of production deployment.\n\nBy default, this template supports JSX syntax with Tailwind CSS classes, React hooks, and Lucide React for icons. Do not install other packages for UI themes, icons, etc unless absolutely necessary or requested.\n\nUse icons from lucide-react for logos.\n\nUse stock photos from unsplash where appropriate, only valid URLs you know exist. Do not download the images, only link to them in image tags.\n\n";
 
@@ -10,6 +40,56 @@ export const getSystemPrompt = (
 ) => {
   const isFirstTurn = !conversationContext || conversationContext.conversationTurn === 1;
   const hasExistingFiles = conversationContext && conversationContext.existingFiles.length > 0;
+
+  // Process file contents with AGGRESSIVE truncation for 8K token limit
+  // GitHub Models (all models) have 8K input limit, need to fit:
+  // - Base system prompt: ~3K tokens
+  // - File contents: ~3K tokens (VERY LIMITED)
+  // - User message: ~1K tokens
+  // - Safety buffer: ~1K tokens
+  let processedFileContents: Array<{ path: string; content: string; wasTruncated: boolean }> = [];
+  let totalEstimatedTokens = 0;
+  const MAX_FILE_TOKENS = 400; // Very small per file (was 5000)
+  const MAX_TOTAL_FILE_TOKENS = 3000; // Total budget for ALL files (was 200000)
+
+  if (conversationContext?.fileContents && conversationContext.fileContents.length > 0) {
+    // Prioritize files by importance
+    const sortedFiles = [...conversationContext.fileContents].sort((a, b) => {
+      const getImportance = (path: string) => {
+        if (path.includes('package.json')) return 0; // Most important
+        if (path.endsWith('.config.js') || path.endsWith('.config.ts')) return 1;
+        if (path.includes('layout.') || path.includes('_app.')) return 2;
+        if (path.includes('page.') || path.includes('index.')) return 3;
+        if (path.includes('/api/')) return 4;
+        return 5; // Least important
+      };
+      return getImportance(a.path) - getImportance(b.path);
+    });
+
+    // Include only top N most important files
+    const maxFiles = 8; // Limit to 8 files max
+    const filesToInclude = sortedFiles.slice(0, maxFiles);
+
+    for (const file of filesToInclude) {
+      const fileTokens = estimateTokens(file.content);
+
+      // Stop if we're at budget
+      if (totalEstimatedTokens >= MAX_TOTAL_FILE_TOKENS) {
+        break;
+      }
+
+      const { content, wasTruncated } = truncateFileContent(file.content, MAX_FILE_TOKENS);
+      processedFileContents.push({
+        path: file.path,
+        content,
+        wasTruncated: wasTruncated || file.truncated || false,
+      });
+
+      totalEstimatedTokens += estimateTokens(content);
+    }
+
+    console.log(`Processed ${processedFileContents.length}/${conversationContext.fileContents.length} files (max ${maxFiles}), ~${totalEstimatedTokens} tokens`);
+  }
 
   return stripIndents`
   You are Codex, an expert AI assistant and exceptional senior software developer with vast knowledge across multiple programming languages, frameworks, and best practices.
@@ -506,15 +586,18 @@ ${conversationContext ? `
     <conversation_context>
       <turn_number>${conversationContext.conversationTurn}</turn_number>
       
-      ${conversationContext.fileContents && conversationContext.fileContents.length > 0 ? `
+      ${processedFileContents.length > 0 ? `
       <existing_project_files>
         <summary>
           The project currently has ${conversationContext.existingFiles.length} files.
-          Below are the contents of the key files (${conversationContext.fileContents.length} files shown):
+          Below are the contents of ${processedFileContents.length} key files (sorted by importance):
+          ${processedFileContents.length < conversationContext.fileContents!.length
+          ? `\n          Note: ${conversationContext.fileContents!.length - processedFileContents.length} files omitted to stay within token limits.`
+          : ''}
         </summary>
         
-${conversationContext.fileContents.map(file => `
-        <file path="${file.path}"${file.truncated ? ' truncated="true"' : ''}>
+${processedFileContents.map(file => `
+        <file path="${file.path}"${file.wasTruncated ? ' truncated="true"' : ''}>
 ${file.content}
         </file>
 `).join('')}
@@ -525,6 +608,9 @@ ${file.content}
           - Preserve all other code exactly as shown
           - Use UPDATE action for existing files, CREATE only for new files
           - If a file is not shown above but exists in the file list, it hasn't changed recently
+          ${processedFileContents.some(f => f.wasTruncated)
+          ? '- Some files are truncated to save tokens - you have the beginning and end of each file'
+          : ''}
         </instructions>
       </existing_project_files>
       ` : `
