@@ -497,9 +497,9 @@ export function DataTable({
                           {header.isPlaceholder
                             ? null
                             : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
                         </TableHead>
                       )
                     })}
@@ -713,7 +713,7 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
                   Execution rate increased by 12.3% <IconTrendingUp className="size-4" />
                 </div>
                 <div className="text-muted-foreground">
-                  This project has been actively developed with consistent AI-powered 
+                  This project has been actively developed with consistent AI-powered
                   code generation. Recent executions show improved success rates.
                 </div>
               </div>
