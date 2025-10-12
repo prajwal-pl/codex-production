@@ -10,9 +10,13 @@ import {
     cancelExecutionHandler,
     continueConversationHandler,
     getConversationHandler,
+    getAllProjectsHandler,
 } from "../controllers/project.controller.js";
 
 const router = express.Router();
+
+// Get all projects for the authenticated user
+router.get("/", authMiddleware, getAllProjectsHandler);
 
 // Create/update project and trigger code generation
 router.post("/create", authMiddleware, createProjectHandler);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   IconChartBar,
   IconDashboard,
@@ -28,8 +28,9 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Terminal } from "lucide-react";
-import { getProfile } from "@/lib/api-client";
+import { getAllProjects } from "@/lib/api-client";
 import { useSession } from "@/hooks/useSession";
+import type { ProjectSummary } from "@/types/api";
 
 const data = {
   navMain: [
@@ -59,24 +60,6 @@ const data = {
       icon: IconUsers,
     }
   ],
-  projects: [
-    {
-      id: "proj_1",
-      name: "E-commerce Store",
-    },
-    {
-      id: "proj_2",
-      name: "Portfolio Website",
-    },
-    {
-      id: "proj_3",
-      name: "Task Manager App",
-    },
-    {
-      id: "proj_4",
-      name: "Landing Page",
-    },
-  ],
   navSecondary: [
     {
       title: "Community",
@@ -98,10 +81,36 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, loading } = useSession();
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await getAllProjects();
+        // Only show the 5 most recent projects in the sidebar
+        setProjects(response.projects.slice(0, 5));
+      } catch (error) {
+        console.error("Failed to fetch projects for sidebar:", error);
+      } finally {
+        setProjectsLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchProjects();
+    }
+  }, [user]);
 
   if (loading) return null;
 
   if (!user) return null;
+
+  // Convert projects to the format expected by NavProjects
+  const formattedProjects = projects.map((project) => ({
+    id: project.id,
+    name: project.title,
+  }));
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -122,7 +131,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
+        {projectsLoading ? (
+          <div className="px-2 py-2 text-xs text-muted-foreground">
+            Loading projects...
+          </div>
+        ) : (
+          <NavProjects projects={formattedProjects} />
+        )}
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

@@ -187,6 +187,25 @@ export interface CancelExecutionResponse {
     message: string;
 }
 
+// Get all projects
+export interface ProjectSummary {
+    id: string;
+    title: string;
+    description: string | null;
+    createdAt: string;
+    updatedAt: string;
+    lastExecution: {
+        id: string;
+        status: JobStatus;
+        createdAt: string;
+    } | null;
+}
+
+export interface GetAllProjectsResponse {
+    success: true;
+    projects: ProjectSummary[];
+}
+
 // Error response
 export interface ApiErrorResponse {
     success: false;

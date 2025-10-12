@@ -12,6 +12,7 @@ import type {
   GetProjectExecutionsResponse,
   GetProjectFileResponse,
   CancelExecutionResponse,
+  GetAllProjectsResponse,
 } from "@/types/api";
 
 const primaryBackendClient = axios.create({
@@ -279,6 +280,22 @@ export const cancelExecution = async (
   const res = await apiClient.worker.post<CancelExecutionResponse>(
     `/api/projects/execution/${executionId}/cancel`,
     {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return res.data;
+};
+
+/**
+ * Get all projects for the authenticated user
+ */
+export const getAllProjects = async (): Promise<GetAllProjectsResponse> => {
+  const token = getToken();
+  const res = await apiClient.worker.get<GetAllProjectsResponse>(
+    "/api/projects",
     {
       headers: {
         Authorization: `Bearer ${token}`,

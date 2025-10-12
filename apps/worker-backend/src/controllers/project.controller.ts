@@ -857,3 +857,52 @@ export const getConversationHandler = async (req: Request, res: Response) => {
     });
   }
 };
+
+/**
+ * Get all projects for the authenticated user
+ */
+export const getAllProjectsHandler = async (req: Request, res: Response) => {
+  const userId = req.userId!;
+
+  try {
+    const projects = await prisma.project.findMany({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    // Get last execution for each project
+    const projectsWithLastExecution = await Promise.all(
+      projects.map(async (project) => {
+        const lastExecution = await prisma.codeExecution.findFirst({
+          where: { projectId: project.id },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+          },
+        });
+
+        return {
+          id: project.id,
+          title: project.title,
+          description: project.description,
+          createdAt: project.createdAt,
+          updatedAt: project.updatedAt,
+          lastExecution: lastExecution || null,
+        };
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      projects: projectsWithLastExecution,
+    });
+  } catch (error) {
+    console.error("Error fetching projects:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch projects",
+    });
+  }
+};
