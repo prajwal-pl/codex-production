@@ -11,6 +11,7 @@ import {
   continueConversation,
   getExecutionStatus,
   downloadArtifact,
+  getProjectFile,
 } from "@/lib/api-client";
 
 type EditorPageProps = {
@@ -186,27 +187,23 @@ const EditorPage = ({ params }: EditorPageProps) => {
     }
   };
 
-  // Handle file selection - download artifact content
+  // Handle file selection - fetch file content from project
   const handleFileSelect = async (filePath: string): Promise<string | undefined> => {
     try {
-      // Find the artifact for this file path
-      // For now, we'll need to fetch from execution artifacts
-      // This is a simplified version - you may want to cache artifacts
-      if (currentExecutionId) {
-        const statusResponse = await getExecutionStatus(currentExecutionId);
-        const artifact = statusResponse.artifacts.find((a) => a.path === filePath);
+      // ✅ Use the new robust API that queries by project + file path
+      // This finds the most recent version of the file from completed executions
+      const response = await getProjectFile(projectId, filePath);
+      return response.file.content;
+    } catch (err: any) {
+      console.error("Failed to load file:", err);
 
-        if (artifact) {
-          const blob = await downloadArtifact(artifact.id);
-          return await blob.text();
-        }
+      // Check if it's a 404 (file not found)
+      if (err?.response?.status === 404) {
+        return `// ${filePath}\n// File not found in project\n// This file may not have been created yet or was removed.`;
       }
 
-      // Fallback: return placeholder
-      return `// ${filePath}\n// Loading file content...`;
-    } catch (err) {
-      console.error("Failed to load file:", err);
-      return `// ${filePath}\n// Failed to load file content`;
+      // Other errors
+      return `// ${filePath}\n// Failed to load file content: ${err instanceof Error ? err.message : 'Unknown error'}`;
     }
   };
 

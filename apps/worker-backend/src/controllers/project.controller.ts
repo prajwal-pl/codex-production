@@ -362,6 +362,95 @@ export const downloadArtifactHandler = async (req: Request, res: Response) => {
 };
 
 /**
+ * Get file content by project and file path
+ * This is more robust than fetching by execution ID
+ */
+export const getProjectFileHandler = async (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const { filePath } = req.query;
+  const userId = req.userId!;
+
+  if (!filePath || typeof filePath !== 'string') {
+    return res.status(400).json({
+      success: false,
+      message: "File path is required",
+    });
+  }
+
+  try {
+    // Verify project access
+    const project = await prisma.project.findFirst({
+      where: {
+        id: projectId!,
+        OR: [
+          { userId },
+          { members: { some: { userId } } },
+        ],
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    // Find the most recent artifact for this file path in this project
+    // Join through executions to ensure we only get artifacts from this project
+    const artifact = await prisma.codeArtifact.findFirst({
+      where: {
+        path: filePath,
+        execution: {
+          projectId: projectId!,
+          status: JobStatus.COMPLETED, // Only get files from completed executions
+        },
+      },
+      orderBy: {
+        createdAt: "desc", // Get the most recent version
+      },
+      select: {
+        id: true,
+        filename: true,
+        path: true,
+        content: true,
+        mimeType: true,
+        size: true,
+        createdAt: true,
+      },
+    });
+
+    if (!artifact) {
+      return res.status(404).json({
+        success: false,
+        message: "File not found in project",
+      });
+    }
+
+    // Return JSON with file data for frontend consumption
+    return res.status(200).json({
+      success: true,
+      file: {
+        id: artifact.id,
+        filename: artifact.filename,
+        path: artifact.path,
+        content: artifact.content,
+        mimeType: artifact.mimeType,
+        size: artifact.size,
+        createdAt: artifact.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching project file:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch file",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+/**
  * Cancel running execution
  */
 export const cancelExecutionHandler = async (req: Request, res: Response) => {

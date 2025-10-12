@@ -160,6 +160,19 @@ export interface FileContent {
     mimeType?: string;
 }
 
+export interface GetProjectFileResponse {
+    success: true;
+    file: {
+        id: string;
+        filename: string;
+        path: string;
+        content: string;
+        mimeType: string;
+        size: number;
+        createdAt: string;
+    };
+}
+
 // Artifact download
 export interface DownloadArtifactResponse {
     success: true;

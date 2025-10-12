@@ -6,6 +6,7 @@ import {
     getExecutionLogsHandler,
     getProjectExecutionsHandler,
     downloadArtifactHandler,
+    getProjectFileHandler,
     cancelExecutionHandler,
     continueConversationHandler,
     getConversationHandler,
@@ -33,6 +34,9 @@ router.get("/:projectId/executions", authMiddleware, getProjectExecutionsHandler
 
 // Download artifact file
 router.get("/artifact/:artifactId/download", authMiddleware, downloadArtifactHandler);
+
+// Get file content by project and file path (more robust)
+router.get("/:projectId/file", authMiddleware, getProjectFileHandler);
 
 // Cancel running execution
 router.post("/execution/:executionId/cancel", authMiddleware, cancelExecutionHandler);

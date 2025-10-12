@@ -10,6 +10,7 @@ import type {
   GetExecutionStatusResponse,
   GetExecutionLogsResponse,
   GetProjectExecutionsResponse,
+  GetProjectFileResponse,
   CancelExecutionResponse,
 } from "@/types/api";
 
@@ -239,6 +240,27 @@ export const downloadArtifact = async (
     `/api/projects/artifact/${artifactId}/download`,
     {
       responseType: 'blob',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return res.data;
+};
+
+/**
+ * Get file content by project ID and file path
+ * More robust than fetching by execution ID
+ */
+export const getProjectFile = async (
+  projectId: string,
+  filePath: string
+): Promise<GetProjectFileResponse> => {
+  const token = getToken();
+  const res = await apiClient.worker.get<GetProjectFileResponse>(
+    `/api/projects/${projectId}/file`,
+    {
+      params: { filePath },
       headers: {
         Authorization: `Bearer ${token}`,
       },
