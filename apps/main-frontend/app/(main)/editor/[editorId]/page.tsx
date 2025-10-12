@@ -1,18 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EditorLayout } from "@/components/global/editor/editor-layout";
 import { LoadingState } from "@/components/global/editor/loading-state";
 import { Message } from "@/types";
-import { JobStatus } from "@/types/api";
-import {
-  getConversation,
-  continueConversation,
-  getExecutionStatus,
-  downloadArtifact,
-  getProjectFile,
-} from "@/lib/api-client";
+import { getProjectFile } from "@/lib/api-client";
+import { useProjectData } from "./hooks/useProjectData";
+import { useConversation } from "./hooks/useConversation";
+
+export const dynamic = 'force-dynamic';
 
 type EditorPageProps = {
   params: Promise<{ editorId: string }>;
@@ -23,201 +20,100 @@ const EditorPage = ({ params }: EditorPageProps) => {
   const p = React.use(params);
   const projectId = p.editorId;
 
-  // State management
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [files, setFiles] = useState<string[]>([]);
-  const [previewUrl, setPreviewUrl] = useState<string | undefined>();
-  const [projectTitle, setProjectTitle] = useState<string>("Loading...");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [currentExecutionId, setCurrentExecutionId] = useState<string | null>(null);
-  const [currentExecutionStatus, setCurrentExecutionStatus] = useState<JobStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Track if we need to refresh
+  const [shouldRefresh, setShouldRefresh] = React.useState(false);
 
-  // Load initial conversation data
-  useEffect(() => {
-    const loadConversation = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await getConversation(projectId);
-
-        const { project, conversation, executions } = response.data;
-
-        // Set project metadata
-        setProjectTitle(project.title);
-        setPreviewUrl(project.previewUrl || undefined);
-
-        // Convert conversation prompts to Message format
-        const convertedMessages: Message[] = conversation.map((prompt) => ({
-          id: prompt.id,
-          role: prompt.role === "USER" ? "user" : "assistant",
-          content: prompt.content,
-          createdAt: prompt.createdAt,
-          metadata: {
-            filesChanged: prompt.execution?.changedFiles,
-            executionId: prompt.execution?.id,
-          },
-        }));
-        setMessages(convertedMessages);
-
-        // Get files from the most recent completed execution
-        const lastCompletedExecution = executions
-          .filter((ex) => ex.status === "COMPLETED")
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-
-        if (lastCompletedExecution) {
-          setFiles(lastCompletedExecution.createdFiles);
-          if (lastCompletedExecution.previewUrl) {
-            setPreviewUrl(lastCompletedExecution.previewUrl);
-          }
-        }
-
-        // Check if there's an active execution
-        const activeExecution = executions.find((ex) =>
-          ["PENDING", "RUNNING", "STREAMING", "EXECUTING"].includes(ex.status)
-        );
-
-        if (activeExecution) {
-          setCurrentExecutionId(activeExecution.id);
-          setIsGenerating(true);
-          pollExecutionStatus(activeExecution.id);
-        }
-
-      } catch (err) {
-        console.error("Failed to load conversation:", err);
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load project. Please try again."
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadConversation();
+  // Check if refresh is needed on mount
+  React.useEffect(() => {
+    const hasRefreshed = sessionStorage.getItem(`refreshed-${projectId}`);
+    if (!hasRefreshed) {
+      setShouldRefresh(true);
+      sessionStorage.setItem(`refreshed-${projectId}`, 'true');
+      // Small delay to ensure loading state renders first
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
+    }
   }, [projectId]);
 
-  // Poll execution status
-  const pollExecutionStatus = async (executionId: string) => {
-    const pollInterval = setInterval(async () => {
-      try {
-        const statusResponse = await getExecutionStatus(executionId);
-        const { execution } = statusResponse;
+  // Use custom hooks for data management
+  const { data, isLoading, error, currentExecutionStatus } = useProjectData(projectId);
+  const { sendMessage, isGenerating } = useConversation(projectId);
 
-        // Update current execution status
-        setCurrentExecutionStatus(execution.status);
+  // Local state for messages and files (to allow optimistic updates)
+  const [localMessages, setLocalMessages] = React.useState<Message[]>([]);
+  const [localFiles, setLocalFiles] = React.useState<string[]>([]);
+  const [localPreviewUrl, setLocalPreviewUrl] = React.useState<string | undefined>();
+  const [hasInitialized, setHasInitialized] = React.useState(false);
 
-        // Update files and preview URL if available
-        if (execution.createdFiles.length > 0) {
-          setFiles(execution.createdFiles);
-        }
-        if (execution.previewUrl) {
-          setPreviewUrl(execution.previewUrl);
-        }
+  // Show loading state immediately if refresh is pending
+  if (shouldRefresh) {
+    return <LoadingState status="INITIALIZING" message="Loading your project..." showSteps={false} />;
+  }
 
-        // Check if execution is complete
-        if (["COMPLETED", "FAILED", "CANCELLED"].includes(execution.status)) {
-          clearInterval(pollInterval);
-          setIsGenerating(false);
-          setCurrentExecutionId(null);
-          setCurrentExecutionStatus(null);
+  // Sync data from hook to local state
+  React.useEffect(() => {
+    if (data) {
+      setLocalMessages(data.messages);
+      setLocalFiles(data.files);
+      setLocalPreviewUrl(data.previewUrl);
+      setHasInitialized(true);
+    }
+  }, [data]);
 
-          // Add assistant response to messages if completed
-          if (execution.status === "COMPLETED" && execution.generatedCode) {
-            const assistantMessage: Message = {
-              id: `msg-${Date.now()}-assistant`,
-              role: "assistant",
-              content: execution.generatedCode,
-              createdAt: execution.completedAt || new Date().toISOString(),
-              metadata: {
-                filesChanged: execution.createdFiles,
-                executionId: execution.id,
-              },
-            };
-            setMessages((prev) => [...prev, assistantMessage]);
-          } else if (execution.status === "FAILED") {
-            setError(execution.error || "Code generation failed");
-          }
-        }
-      } catch (err) {
-        console.error("Failed to poll execution status:", err);
-        clearInterval(pollInterval);
-        setIsGenerating(false);
-        setCurrentExecutionStatus(null);
-      }
-    }, 2000); // Poll every 2 seconds
-
-    // Cleanup on unmount
-    return () => clearInterval(pollInterval);
-  };
-
-  // Handle sending new messages
+  // Handle sending messages with optimistic updates
   const handleSendMessage = async (message: string) => {
-    if (isGenerating) return;
-
-    setIsGenerating(true);
-    setError(null);
-
-    // Add user message immediately
+    // Optimistic update - add user message immediately
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
       role: "user",
       content: message,
       createdAt: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, userMessage]);
+    setLocalMessages(prev => [...prev, userMessage]);
 
-    try {
-      const response = await continueConversation(projectId, { message });
-      const { executionId } = response.data;
-
-      setCurrentExecutionId(executionId);
-      pollExecutionStatus(executionId);
-
-    } catch (err) {
-      console.error("Failed to send message:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to process your message. Please try again."
-      );
-      setIsGenerating(false);
-    }
+    // Send message and handle updates
+    await sendMessage(message, (files, previewUrl, assistantMessage) => {
+      if (files.length > 0) setLocalFiles(files);
+      if (previewUrl) setLocalPreviewUrl(previewUrl);
+      if (assistantMessage) setLocalMessages(prev => [...prev, assistantMessage]);
+    });
   };
 
-  // Handle file selection - fetch file content from project
+  // Handle file selection
   const handleFileSelect = async (filePath: string): Promise<string | undefined> => {
     try {
-      // ✅ Use the new robust API that queries by project + file path
-      // This finds the most recent version of the file from completed executions
       const response = await getProjectFile(projectId, filePath);
       return response.file.content;
     } catch (err: any) {
       console.error("Failed to load file:", err);
-
-      // Check if it's a 404 (file not found)
       if (err?.response?.status === 404) {
-        return `// ${filePath}\n// File not found in project\n// This file may not have been created yet or was removed.`;
+        return `// ${filePath}\n// File not found`;
       }
-
-      // Other errors
-      return `// ${filePath}\n// Failed to load file content: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      return `// ${filePath}\n// Failed to load file`;
     }
   };
 
-  if (isLoading) {
+  // Show loading state during initial load or when execution is running with no files
+  // MANDATORY: Must show loading if not initialized yet OR if loading OR if execution running with no files
+  if (!hasInitialized || isLoading || (currentExecutionStatus && localFiles.length === 0)) {
     return (
       <LoadingState
-        status="INITIALIZING"
-        message="Loading your project..."
-        showSteps={false}
+        status={currentExecutionStatus || "INITIALIZING"}
+        message={
+          currentExecutionStatus === "RUNNING"
+            ? "Generating code with AI..."
+            : currentExecutionStatus === "EXECUTING"
+              ? "Setting up your project..."
+              : "Loading your project..."
+        }
+        showSteps={!!currentExecutionStatus}
       />
     );
   }
 
-  if (error && messages.length === 0) {
+  // Show error state
+  if (error && !data) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="max-w-md text-center">
@@ -234,43 +130,39 @@ const EditorPage = ({ params }: EditorPageProps) => {
     );
   }
 
-  // Show loading overlay during generation
-  const loadingOverlay = isGenerating && currentExecutionStatus && (
-    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
-      <LoadingState
-        status={currentExecutionStatus}
-        message={
-          currentExecutionStatus === "PENDING"
-            ? "Queuing your request..."
-            : currentExecutionStatus === "RUNNING"
-              ? "Generating code..."
-              : currentExecutionStatus === "STREAMING"
-                ? "Streaming response..."
-                : currentExecutionStatus === "EXECUTING"
-                  ? "Setting up your project..."
-                  : "Processing..."
-        }
-        showSteps={["RUNNING", "EXECUTING"].includes(currentExecutionStatus)}
-      />
-    </div>
-  );
+  // Show loading overlay during generation (after initial load)
+  const showLoadingOverlay = isGenerating && currentExecutionStatus;
 
   return (
     <>
-      {loadingOverlay}
+      {showLoadingOverlay && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
+          <LoadingState
+            status={currentExecutionStatus!}
+            message={
+              currentExecutionStatus === "PENDING"
+                ? "Queuing your request..."
+                : currentExecutionStatus === "RUNNING"
+                  ? "Generating code..."
+                  : currentExecutionStatus === "EXECUTING"
+                    ? "Setting up your project..."
+                    : "Processing..."
+            }
+            showSteps={["RUNNING", "EXECUTING"].includes(currentExecutionStatus!)}
+          />
+        </div>
+      )}
       <EditorLayout
-        messages={messages}
-        files={files}
-        previewUrl={previewUrl}
+        messages={localMessages}
+        files={localFiles}
+        previewUrl={localPreviewUrl}
         isLoading={isGenerating}
         onSendMessage={handleSendMessage}
         onFileSelect={handleFileSelect}
-        projectTitle={projectTitle}
+        projectTitle={data?.projectTitle || "Loading..."}
       />
     </>
   );
 };
 
 export default EditorPage;
-
-
