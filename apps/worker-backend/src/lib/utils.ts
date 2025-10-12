@@ -53,6 +53,84 @@ export function parseArtifact(code: string): ParsedAction[] {
     return actions;
 }
 
+/**
+ * Extract the project title from the boltArtifact tag
+ * Example: <boltArtifact id="portfolio-site" title="Personal Portfolio Website">
+ * Returns: "Personal Portfolio Website"
+ */
+export function extractArtifactTitle(code: string): string | null {
+    // Match boltArtifact opening tag with title attribute
+    const artifactRegex = /<boltArtifact[^>]+title="([^"]+)"/;
+    const match = code.match(artifactRegex);
+    
+    if (match && match[1]) {
+        return match[1].trim();
+    }
+    
+    return null;
+}
+
+/**
+ * Generate a clean, user-friendly summary from the LLM's artifact response
+ * Instead of showing raw XML, show what was actually done
+ */
+export function generateExecutionSummary(
+    generatedCode: string,
+    createdFiles: string[],
+    conversationTurn: number = 1
+): string {
+    const actions = parseArtifact(generatedCode);
+
+    if (actions.length === 0) {
+        return "I've processed your request.";
+    }
+
+    const fileActions = actions.filter(a => a.type === "file");
+    const shellActions = actions.filter(a => a.type === "shell");
+
+    let summary = "";
+
+    // First turn: Creating project
+    if (conversationTurn === 1) {
+        summary = `✅ **Created your project**\n\n`;
+
+        if (fileActions.length > 0) {
+            summary += `📁 **Generated ${fileActions.length} files:**\n`;
+            fileActions.slice(0, 10).forEach(action => {
+                summary += `  - ${action.filePath}\n`;
+            });
+            if (fileActions.length > 10) {
+                summary += `  ... and ${fileActions.length - 10} more files\n`;
+            }
+        }
+    } else {
+        // Subsequent turns: Updating project
+        summary = `✅ **Updated your project**\n\n`;
+
+        if (fileActions.length > 0) {
+            summary += `📝 **Modified ${fileActions.length} files:**\n`;
+            fileActions.forEach(action => {
+                summary += `  - ${action.filePath}\n`;
+            });
+        }
+    }
+
+    if (shellActions.length > 0) {
+        summary += `\n🔧 **Ran commands:**\n`;
+        shellActions.forEach(action => {
+            const cmd = action.command || "";
+            // Show only the main command, not the full chain
+            const parts = cmd.split("&&");
+            const mainCmd = parts[parts.length - 1]?.trim() || cmd;
+            summary += `  - ${mainCmd}\n`;
+        });
+    }
+
+    summary += `\n💡 You can view the files in the file tree on the left.`;
+
+    return summary;
+}
+
 function getDirectoryPath(filePath: string): string {
     const parts = filePath.split("/");
     parts.pop(); // Remove filename

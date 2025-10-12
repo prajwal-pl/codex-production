@@ -62,19 +62,36 @@ export function useProjectData(projectId: string): UseProjectDataResult {
                             description: `${execution.createdFiles.length} files ready`,
                         });
 
-                        // Add assistant message if available
-                        if (execution.generatedCode) {
-                            const assistantMessage: Message = {
-                                id: `msg-${Date.now()}-assistant`,
-                                role: "assistant",
-                                content: execution.generatedCode,
-                                createdAt: execution.completedAt || new Date().toISOString(),
+                        // ✅ Reload conversation to get the new assistant message (clean summary)
+                        try {
+                            const response = await getConversation(projectId);
+                            if (!mounted) return true;
+
+                            const { project, conversation, executions } = response.data;
+
+                            const convertedMessages: Message[] = conversation.map((prompt) => ({
+                                id: prompt.id,
+                                role: prompt.role === "USER" ? "user" : "assistant",
+                                content: prompt.content,
+                                createdAt: prompt.createdAt,
                                 metadata: {
-                                    filesChanged: execution.createdFiles,
-                                    executionId: execution.id,
+                                    filesChanged: prompt.execution?.changedFiles,
+                                    executionId: prompt.execution?.id,
                                 },
-                            };
-                            setData(prev => prev ? { ...prev, messages: [...prev.messages, assistantMessage] } : null);
+                            }));
+
+                            const completedExecution = executions
+                                .filter((ex) => ex.status === "COMPLETED")
+                                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+                            setData({
+                                messages: convertedMessages,
+                                files: completedExecution?.createdFiles || [],
+                                previewUrl: completedExecution?.previewUrl || project.previewUrl || undefined,
+                                projectTitle: project.title,
+                            });
+                        } catch (err) {
+                            console.error("Failed to reload conversation:", err);
                         }
                     } else if (execution.status === "FAILED") {
                         const errorMsg = execution.error || "Code generation failed";

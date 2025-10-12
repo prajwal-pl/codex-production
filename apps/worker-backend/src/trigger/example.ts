@@ -223,6 +223,24 @@ export const codeEngineTask = task({
         throw new Error("No actions to execute");
       }
 
+      // ✅ Extract and update project title from artifact
+      const { extractArtifactTitle } = await import("../lib/utils.js");
+      const artifactTitle = extractArtifactTitle(fullResponse);
+      
+      if (artifactTitle) {
+        logger.info("Extracted project title from artifact", { 
+          projectId, 
+          title: artifactTitle 
+        });
+        
+        await prisma.project.update({
+          where: { id: projectId },
+          data: { title: artifactTitle },
+        });
+      } else {
+        logger.warn("No title found in artifact, keeping default project name", { projectId });
+      }
+
       // ✅ Check if we should reuse an existing sandbox or create a new one
       let sandbox: Sandbox;
       let sandboxId: string;

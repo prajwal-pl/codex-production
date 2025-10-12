@@ -1,10 +1,10 @@
 import { useState, useCallback } from "react";
 import { Message } from "@/types";
-import { continueConversation, getExecutionStatus } from "@/lib/api-client";
+import { continueConversation, getExecutionStatus, getConversation } from "@/lib/api-client";
 import { toast } from "sonner";
 
 interface UseConversationResult {
-    sendMessage: (message: string, onUpdate: (files: string[], previewUrl?: string, message?: Message) => void) => Promise<void>;
+    sendMessage: (message: string, onUpdate: (files: string[], previewUrl?: string, reloadMessages?: boolean) => void) => Promise<void>;
     isGenerating: boolean;
 }
 
@@ -13,7 +13,7 @@ export function useConversation(projectId: string): UseConversationResult {
 
     const sendMessage = useCallback(async (
         message: string,
-        onUpdate: (files: string[], previewUrl?: string, message?: Message) => void
+        onUpdate: (files: string[], previewUrl?: string, reloadMessages?: boolean) => void
     ) => {
         if (isGenerating) return;
 
@@ -71,20 +71,8 @@ export function useConversation(projectId: string): UseConversationResult {
                                 description: `${execution.createdFiles.length} files ready`,
                             });
 
-                            // Create assistant message
-                            if (execution.generatedCode) {
-                                const assistantMessage: Message = {
-                                    id: `msg-${Date.now()}-assistant`,
-                                    role: "assistant",
-                                    content: execution.generatedCode,
-                                    createdAt: execution.completedAt || new Date().toISOString(),
-                                    metadata: {
-                                        filesChanged: execution.createdFiles,
-                                        executionId: execution.id,
-                                    },
-                                };
-                                onUpdate(execution.createdFiles, execution.previewUrl, assistantMessage);
-                            }
+                            // ✅ Signal to reload conversation messages
+                            onUpdate(execution.createdFiles, execution.previewUrl, true);
                         } else if (execution.status === "FAILED") {
                             toast.error("Generation failed", {
                                 id: `execution-${executionId}`,

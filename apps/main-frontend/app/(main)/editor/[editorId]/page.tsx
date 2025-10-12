@@ -73,10 +73,14 @@ const EditorPage = ({ params }: EditorPageProps) => {
     setLocalMessages(prev => [...prev, userMessage]);
 
     // Send message and handle updates
-    await sendMessage(message, (files, previewUrl, assistantMessage) => {
+    await sendMessage(message, (files, previewUrl, reloadMessages) => {
       if (files.length > 0) setLocalFiles(files);
       if (previewUrl) setLocalPreviewUrl(previewUrl);
-      if (assistantMessage) setLocalMessages(prev => [...prev, assistantMessage]);
+
+      // ✅ If reloadMessages is true, sync from data (which was reloaded in the hook)
+      if (reloadMessages && data) {
+        setLocalMessages(data.messages);
+      }
     });
   };
 

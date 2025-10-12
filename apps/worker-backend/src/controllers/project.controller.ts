@@ -196,12 +196,25 @@ export const getExecutionStatusHandler = async (req: Request, res: Response) => 
       });
 
       if (!existingAssistantPrompt) {
+        // ✅ Generate a clean summary instead of raw XML
+        const { generateExecutionSummary } = await import("../lib/utils.js");
+        const summary = generateExecutionSummary(
+          execution.generatedCode,
+          execution.createdFiles,
+          execution.conversationTurn || 1
+        );
+
         await prisma.prompt.create({
           data: {
-            content: execution.generatedCode,
+            content: summary, // ✅ Use clean summary instead of raw generatedCode
             role: "ASSISTANT",
             projectId: execution.projectId,
             createdBy: userId,
+            metadata: {
+              executionId: execution.id,
+              filesCreated: execution.createdFiles.length,
+              conversationTurn: execution.conversationTurn,
+            },
           },
         });
       }
