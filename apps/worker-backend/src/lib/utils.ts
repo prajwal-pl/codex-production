@@ -62,11 +62,11 @@ export function extractArtifactTitle(code: string): string | null {
     // Match boltArtifact opening tag with title attribute
     const artifactRegex = /<boltArtifact[^>]+title="([^"]+)"/;
     const match = code.match(artifactRegex);
-    
+
     if (match && match[1]) {
         return match[1].trim();
     }
-    
+
     return null;
 }
 

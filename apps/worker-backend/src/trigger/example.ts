@@ -226,13 +226,13 @@ export const codeEngineTask = task({
       // ✅ Extract and update project title from artifact
       const { extractArtifactTitle } = await import("../lib/utils.js");
       const artifactTitle = extractArtifactTitle(fullResponse);
-      
+
       if (artifactTitle) {
-        logger.info("Extracted project title from artifact", { 
-          projectId, 
-          title: artifactTitle 
+        logger.info("Extracted project title from artifact", {
+          projectId,
+          title: artifactTitle
         });
-        
+
         await prisma.project.update({
           where: { id: projectId },
           data: { title: artifactTitle },
