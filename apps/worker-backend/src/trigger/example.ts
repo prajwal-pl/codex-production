@@ -100,9 +100,10 @@ export const codeEngineTask = task({
           return getImportance(a.path) - getImportance(b.path);
         });
 
-        const MAX_FILE_TOKENS = 400; // Per file
-        const MAX_TOTAL_TOKENS = 3000; // Total budget
-        const maxFiles = 8;
+        // ✅ CRITICAL FIX: Much stricter limits to fit 8K token budget
+        const MAX_FILE_TOKENS = 300;  // Per file (reduced from 400)
+        const MAX_TOTAL_TOKENS = 2000; // Total budget (reduced from 3000)
+        const maxFiles = 6;            // Max files (reduced from 8)
 
         const truncateFile = (content: string, maxTokens: number) => {
           const tokens = estimateTokens(content);
@@ -131,6 +132,7 @@ export const codeEngineTask = task({
           originalFiles: conversationContext.fileContents.length,
           includedFiles: result.length,
           estimatedTokens: totalTokens,
+          maxBudget: MAX_TOTAL_TOKENS,
         });
 
         return result;
@@ -144,10 +146,12 @@ export const codeEngineTask = task({
       });
 
       // Convert ModelMessage[] to GitHubModelsMessage[] with condensed system prompt
+      const systemPromptContent = getCondensedSystemPrompt("/home/project", conversationContext, processedFiles);
+
       const githubMessages: GitHubModelsMessage[] = [
         {
           role: "system",
-          content: getCondensedSystemPrompt("/home/project", conversationContext, processedFiles)
+          content: systemPromptContent
         },
         ...(messages as ModelMessage[]).map(m => ({
           role: m.role as "user" | "assistant",
@@ -155,9 +159,36 @@ export const codeEngineTask = task({
         }))
       ];
 
+      // ✅ Log token estimates BEFORE sending to catch overages
+      const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+      const systemPromptTokens = estimateTokens(systemPromptContent);
+      const conversationTokens = messages.reduce((sum, msg) => {
+        const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+        return sum + estimateTokens(content);
+      }, 0);
+      const totalEstimatedTokens = systemPromptTokens + conversationTokens;
+
+      logger.info("📊 Token budget analysis", {
+        systemPromptTokens,
+        conversationTokens,
+        conversationMessages: messages.length,
+        totalEstimatedTokens,
+        limit: 8000,
+        withinLimit: totalEstimatedTokens <= 8000,
+        overhead: totalEstimatedTokens - 8000,
+      });
+
+      if (totalEstimatedTokens > 8000) {
+        logger.warn("⚠️  ESTIMATED TOKENS EXCEED 8K LIMIT!", {
+          estimated: totalEstimatedTokens,
+          limit: 8000,
+          overage: totalEstimatedTokens - 8000,
+        });
+      }
+
       // Generate with GitHub Models API
       const result = await generateWithGitHubModels(githubMessages, {
-        model: GITHUB_MODELS.GPT_4_1, // GPT-4.1: 1,049K input, 33K output - handles massive context!
+        model: GITHUB_MODELS.GPT_4_1, // GPT-4.1: 8K token input limit
         temperature: 0.7,
         maxTokens: 16384, // Use plenty of output tokens for large code generation
         topP: 1.0,

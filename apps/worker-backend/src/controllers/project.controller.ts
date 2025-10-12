@@ -27,10 +27,20 @@ export const createProjectHandler = async (req: Request, res: Response) => {
 
       existingPrompts
         .filter((p) => p.content && p.content.trim() !== "")
+        .slice(-5) // ✅ Only take last 5 messages for context
         .forEach((p) => {
+          let content = p.content;
+
+          // ✅ Truncate assistant messages to prevent token overflow
+          if (p.role === PromptRole.ASSISTANT && content.length > 2000) {
+            content = content.substring(0, 1000) +
+              '\n\n[... AI response truncated for context ...]\n\n' +
+              content.substring(content.length - 1000);
+          }
+
           messages.push({
             role: p.role.toLowerCase() as "user" | "assistant",
-            content: p.content,
+            content,
           });
         });
     } else {
@@ -86,6 +96,32 @@ export const createProjectHandler = async (req: Request, res: Response) => {
         tags: [`project:${currentProjectId}`, `user:${userId}`],
       }
     );
+
+    // ✅ CRITICAL FIX: Pre-create execution record to prevent 404 errors on immediate polling
+    const createdExecution = await prisma.codeExecution.upsert({
+      where: { id: handle.id },
+      create: {
+        id: handle.id,
+        userId,
+        projectId: currentProjectId,
+        triggerJobId: handle.id,
+        status: JobStatus.PENDING,
+        aiModel: "github/gpt-4.1",
+        sandboxTemplate: "NODE_22",
+        conversationTurn: 1,
+        parentExecutionId: null,
+      },
+      update: {
+        // If already exists (from retry), reset to pending
+        status: JobStatus.PENDING,
+      },
+    });
+
+    console.log("✅ Execution record created", {
+      executionId: createdExecution.id,
+      projectId: currentProjectId,
+      status: createdExecution.status,
+    });
 
     return res.status(202).json({
       success: true,
@@ -589,31 +625,36 @@ export const continueConversationHandler = async (req: Request, res: Response) =
           // Convert artifacts to fileContents format
           fileContents = artifacts
             .filter(a => existingFiles.includes(a.path)) // Only include files that should exist
-            .slice(0, 20) // Limit to 20 files
+            .slice(0, 8) // ✅ CRITICAL FIX: Limit to 8 files max (was 20)
             .map(artifact => ({
               path: artifact.path,
               content: artifact.content,
               size: artifact.size,
-              truncated: artifact.size > (50 * 1024), // Mark as truncated if > 50KB
+              truncated: artifact.size > (10 * 1024), // ✅ CRITICAL FIX: Mark as truncated if > 10KB (was 50KB)
             }));
 
-          // Truncate large files
+          // ✅ CRITICAL FIX: Truncate large files MORE AGGRESSIVELY
           fileContents = fileContents.map(file => {
-            if (file.size > (50 * 1024)) {
+            if (file.size > (10 * 1024)) {
+              // For files > 10KB, take only first 5KB and last 5KB
+              const maxSize = 10 * 1024;
+              const half = maxSize / 2;
               return {
                 ...file,
-                content: file.content.substring(0, 50 * 1024) +
-                  `\n\n/* ... FILE TRUNCATED - Original size: ${(file.size / 1024).toFixed(2)}KB ... */`,
-                size: 50 * 1024,
+                content: file.content.substring(0, half) +
+                  `\n\n/* ... FILE TRUNCATED (original: ${(file.size / 1024).toFixed(2)}KB) ... */\n\n` +
+                  file.content.substring(file.content.length - half),
+                size: maxSize,
                 truncated: true,
               };
             }
             return file;
           });
 
-          // Enforce total size limit (200KB)
+          // ✅ CRITICAL FIX: Enforce MUCH stricter total size limit (30KB max for 8K token budget)
+          // 30KB ~= 7,500 tokens, leaving room for system prompt (~2K) + conversation (~2K)
           let totalSize = 0;
-          const maxTotalSize = 200 * 1024;
+          const maxTotalSize = 30 * 1024; // ✅ REDUCED from 200KB
           fileContents = fileContents.filter(file => {
             if (totalSize + file.size <= maxTotalSize) {
               totalSize += file.size;
@@ -625,6 +666,7 @@ export const continueConversationHandler = async (req: Request, res: Response) =
           console.log(`✅ Prepared ${fileContents.length} file contents from database`, {
             totalSize,
             totalSizeKB: (totalSize / 1024).toFixed(2),
+            estimatedTokens: Math.ceil(totalSize / 4),
             truncatedFiles: fileContents.filter(f => f.truncated).length,
             filesIncluded: fileContents.map(f => `${f.path} (${(f.size / 1024).toFixed(2)}KB)`),
           });
@@ -639,9 +681,9 @@ export const continueConversationHandler = async (req: Request, res: Response) =
               project.activeSandboxId,
               existingFiles,
               {
-                maxFileSize: 50 * 1024,
-                maxTotalSize: 200 * 1024,
-                maxFiles: 20,
+                maxFileSize: 10 * 1024,  // ✅ REDUCED from 50KB
+                maxTotalSize: 30 * 1024, // ✅ REDUCED from 200KB
+                maxFiles: 8,             // ✅ REDUCED from 20
               }
             );
 
@@ -662,13 +704,26 @@ export const continueConversationHandler = async (req: Request, res: Response) =
       });
     }
 
-    // Build conversation history (last 10 messages for context)
+    // Build conversation history (last 5 messages for context to save tokens)
+    // ✅ CRITICAL FIX: Truncate assistant messages (generated code) to prevent token overflow
     const conversationHistory = project.prompts
-      .slice(-10)
-      .map((prompt: any) => ({
-        role: prompt.role === PromptRole.USER ? ("user" as const) : ("assistant" as const),
-        content: prompt.content,
-      }));
+      .slice(-5) // ✅ CRITICAL FIX: Reduced from 10 to 5 messages to fit 8K token limit
+      .map((prompt: any) => {
+        let content = prompt.content;
+
+        // ✅ Truncate assistant messages (generatedCode) which can be massive
+        if (prompt.role === PromptRole.ASSISTANT && content.length > 2000) {
+          // Keep only first 1000 and last 1000 chars of assistant response
+          content = content.substring(0, 1000) +
+            '\n\n[... AI response truncated for context ...]\n\n' +
+            content.substring(content.length - 1000);
+        }
+
+        return {
+          role: prompt.role === PromptRole.USER ? ("user" as const) : ("assistant" as const),
+          content,
+        };
+      });
 
     // Add new user message
     await prisma.prompt.create({
@@ -745,6 +800,33 @@ export const continueConversationHandler = async (req: Request, res: Response) =
         tags: [`project:${projectId}`, `user:${userId}`, `turn:${conversationTurn}`],
       }
     );
+
+    // ✅ CRITICAL FIX: Pre-create execution record to prevent 404 errors on immediate polling
+    const createdExecution = await prisma.codeExecution.upsert({
+      where: { id: handle.id },
+      create: {
+        id: handle.id,
+        userId,
+        projectId,
+        triggerJobId: handle.id,
+        status: JobStatus.PENDING,
+        aiModel: "github/gpt-4.1",
+        sandboxTemplate: (lastExecution?.sandboxTemplate as any) || "NODE_22",
+        conversationTurn,
+        parentExecutionId: lastExecution?.id || null,
+      },
+      update: {
+        // If already exists (from retry), keep it as is
+        status: JobStatus.PENDING,
+      },
+    });
+
+    console.log("✅ Conversation execution record created", {
+      executionId: createdExecution.id,
+      projectId,
+      conversationTurn,
+      status: createdExecution.status,
+    });
 
     return res.status(200).json({
       success: true,

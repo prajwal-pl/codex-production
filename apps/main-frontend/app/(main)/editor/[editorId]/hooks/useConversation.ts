@@ -23,22 +23,34 @@ export function useConversation(projectId: string): UseConversationResult {
             const response = await continueConversation(projectId, { message });
             const { executionId } = response.data;
 
+            console.log("✅ Conversation started:", { executionId, projectId });
+
             toast.loading("Processing your request...", {
                 id: `execution-${executionId}`,
             });
 
-            // Poll for execution status
+            let retryCount = 0;
+            const maxRetries = 5;
+
+            // Poll for execution status with retry logic
             const pollInterval = setInterval(async () => {
                 try {
                     const { execution } = await getExecutionStatus(executionId);
 
+                    // Reset retry count on success
+                    retryCount = 0;
+
                     // Update toast based on status
-                    if (execution.status === "RUNNING") {
+                    if (execution.status === "RUNNING" || execution.status === "STREAMING") {
                         toast.loading("Generating code with AI...", {
                             id: `execution-${executionId}`,
                         });
                     } else if (execution.status === "EXECUTING") {
                         toast.loading("Setting up sandbox...", {
+                            id: `execution-${executionId}`,
+                        });
+                    } else if (execution.status === "PENDING") {
+                        toast.loading("Initializing...", {
                             id: `execution-${executionId}`,
                         });
                     }
@@ -80,19 +92,42 @@ export function useConversation(projectId: string): UseConversationResult {
                             });
                         }
                     }
-                } catch (err) {
+                } catch (err: any) {
+                    // Handle 404 errors with retry logic (execution record might not be created yet)
+                    if (err?.response?.status === 404 && retryCount < maxRetries) {
+                        retryCount++;
+                        console.log(`Execution not found yet, retrying... (${retryCount}/${maxRetries})`);
+                        return; // Continue polling
+                    }
+
                     console.error("Poll error:", err);
                     clearInterval(pollInterval);
                     setIsGenerating(false);
-                    toast.error("Lost connection", { id: `execution-${executionId}` });
+
+                    const errorMessage = err?.response?.status === 404
+                        ? "Execution not found. Please try again."
+                        : "Lost connection to server";
+
+                    toast.error(errorMessage, { id: `execution-${executionId}` });
                 }
             }, 2000);
 
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to send message:", err);
             setIsGenerating(false);
-            const errorMessage = err instanceof Error ? err.message : "Failed to send message";
-            toast.error("Failed to send message", { description: errorMessage });
+
+            // Handle specific error cases
+            if (err?.response?.status === 409) {
+                // Another execution is in progress
+                const existingExecutionId = err?.response?.data?.executionId;
+                toast.error("Please wait", {
+                    description: "Another generation is already in progress",
+                    id: existingExecutionId ? `execution-${existingExecutionId}` : undefined,
+                });
+            } else {
+                const errorMessage = err?.response?.data?.message || err?.message || "Failed to send message";
+                toast.error("Failed to send message", { description: errorMessage });
+            }
         }
     }, [projectId, isGenerating]);
 

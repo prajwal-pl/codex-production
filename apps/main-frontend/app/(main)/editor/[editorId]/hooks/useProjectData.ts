@@ -29,11 +29,16 @@ export function useProjectData(projectId: string): UseProjectDataResult {
     useEffect(() => {
         let mounted = true;
         let pollInterval: NodeJS.Timeout | null = null;
+        let retryCount = 0;
+        const maxRetries = 5;
 
         const updateExecutionStatus = async (executionId: string) => {
             try {
                 const { execution } = await getExecutionStatus(executionId);
                 if (!mounted) return true;
+
+                // Reset retry count on success
+                retryCount = 0;
 
                 setCurrentExecutionStatus(execution.status);
 
@@ -84,13 +89,25 @@ export function useProjectData(projectId: string): UseProjectDataResult {
                 }
 
                 return false; // Execution ongoing
-            } catch (err) {
+            } catch (err: any) {
+                // Handle 404 errors with retry logic (execution record might not be created yet)
+                if (err?.response?.status === 404 && retryCount < maxRetries) {
+                    retryCount++;
+                    console.log(`Execution not found yet, retrying... (${retryCount}/${maxRetries})`);
+                    return false; // Continue polling
+                }
+
                 console.error("Failed to poll execution:", err);
                 if (!mounted) return true;
 
                 setIsLoading(false);
                 setCurrentExecutionStatus(null);
-                toast.error("Lost connection", { id: `execution-${executionId}` });
+
+                const errorMessage = err?.response?.status === 404
+                    ? "Execution not found"
+                    : "Lost connection to server";
+
+                toast.error(errorMessage, { id: `execution-${executionId}` });
                 return true; // Stop polling on error
             }
         };
