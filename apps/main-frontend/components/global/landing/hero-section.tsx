@@ -2,9 +2,11 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, Sparkles, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getAuthRoute } from "@/lib/auth-utils";
 import { HeroVisual } from "./hero-visual";
 
 const trustSignals = [
@@ -26,6 +28,14 @@ const trustSignals = [
 ];
 
 export function HeroSection() {
+    const router = useRouter();
+
+    const handleStartBuilding = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        e.preventDefault();
+        const route = getAuthRoute("/editor", "/sign-in");
+        router.push(route);
+    };
+
     return (
         <section className="relative overflow-hidden border-b bg-gradient-to-b from-background via-background/30 to-muted/10">
             <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:60px_60px]" />
@@ -58,7 +68,7 @@ export function HeroSection() {
 
                         <div className="animate-fade-up flex flex-col items-start gap-4 sm:flex-row" style={{ animationDelay: "180ms" }}>
                             <Button asChild size="lg" className="group w-full sm:w-auto">
-                                <Link href="/editor">
+                                <Link href="/editor" onClick={handleStartBuilding}>
                                     Start Building Free
                                     <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" />
                                 </Link>

@@ -2,10 +2,26 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getAuthRoute } from "@/lib/auth-utils";
 
 export function CTASection() {
+    const router = useRouter();
+
+    const handleStartBuilding = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        e.preventDefault();
+        const route = getAuthRoute("/editor", "/sign-in");
+        router.push(route);
+    };
+
+    const handleViewDashboard = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        e.preventDefault();
+        const route = getAuthRoute("/dashboard", "/sign-in");
+        router.push(route);
+    };
+
     return (
         <section className="relative border-y border-white/10 bg-gradient-to-br from-slate-950 via-primary/15 to-slate-900 py-24 text-slate-100 sm:py-32">
             <div className="absolute inset-0 overflow-hidden">
@@ -29,13 +45,13 @@ export function CTASection() {
 
                     <div className="animate-fade-up flex flex-col items-center justify-center gap-4 sm:flex-row" style={{ animationDelay: "210ms" }}>
                         <Button asChild size="lg" className="group w-full sm:w-auto">
-                            <Link href="/editor">
+                            <Link href="/editor" onClick={handleStartBuilding}>
                                 Start Building Now
                                 <ArrowRight className="ml-2 size-4 transition-transform group-hover:translate-x-1" />
                             </Link>
                         </Button>
                         <Button asChild variant="outline" size="lg" className="w-full border-white/20 bg-white/10 text-slate-100 backdrop-blur transition hover:border-white/30 sm:w-auto">
-                            <Link href="/dashboard">
+                            <Link href="/dashboard" onClick={handleViewDashboard}>
                                 View Dashboard
                             </Link>
                         </Button>
