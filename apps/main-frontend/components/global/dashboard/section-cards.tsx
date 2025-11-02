@@ -10,25 +10,42 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-export function SectionCards() {
+interface SectionCardsProps {
+  stats: {
+    totalProjects: number;
+    projectsLastWeek: number;
+    projectsGrowth: string;
+    totalExecutions: number;
+    executionsLastMonth: number;
+    executionsGrowth: string;
+    totalCodeFiles: number;
+    successRate: number;
+  };
+}
+
+export function SectionCards({ stats }: SectionCardsProps) {
+  const projectGrowthValue = parseFloat(stats.projectsGrowth);
+  const executionGrowthValue = parseFloat(stats.executionsGrowth);
+
   return (
     <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>Total Projects</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            24
+            {stats.totalProjects}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp />
-              +8 this week
+              {projectGrowthValue >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+              {stats.projectsGrowth}% this week
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Growing steadily <IconTrendingUp className="size-4" />
+            {projectGrowthValue >= 0 ? "Growing steadily" : "Slowing down"}{" "}
+            {projectGrowthValue >= 0 ? <IconTrendingUp className="size-4" /> : <IconTrendingDown className="size-4" />}
           </div>
           <div className="text-muted-foreground">
             Active projects in your workspace
@@ -39,18 +56,19 @@ export function SectionCards() {
         <CardHeader>
           <CardDescription>Code Executions</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            156
+            {stats.totalExecutions}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp />
-              +32%
+              {executionGrowthValue >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+              {stats.executionsGrowth}%
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Up 32% this month <IconTrendingUp className="size-4" />
+            {executionGrowthValue >= 0 ? `Up ${stats.executionsGrowth}% this month` : `Down ${Math.abs(executionGrowthValue)}% this month`}{" "}
+            {executionGrowthValue >= 0 ? <IconTrendingUp className="size-4" /> : <IconTrendingDown className="size-4" />}
           </div>
           <div className="text-muted-foreground">
             AI-powered code generations
@@ -61,12 +79,12 @@ export function SectionCards() {
         <CardHeader>
           <CardDescription>Files Created</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            1,247
+            {stats.totalCodeFiles.toLocaleString()}
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
               <IconTrendingUp />
-              +18.5%
+              Active
             </Badge>
           </CardAction>
         </CardHeader>
@@ -81,18 +99,19 @@ export function SectionCards() {
         <CardHeader>
           <CardDescription>Success Rate</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            94.2%
+            {stats.successRate.toFixed(1)}%
           </CardTitle>
           <CardAction>
             <Badge variant="outline">
-              <IconTrendingUp />
-              +2.1%
+              {stats.successRate >= 90 ? <IconTrendingUp /> : <IconTrendingDown />}
+              {stats.successRate >= 90 ? "Excellent" : "Good"}
             </Badge>
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Excellent performance <IconTrendingUp className="size-4" />
+            {stats.successRate >= 90 ? "Excellent performance" : "Good performance"}{" "}
+            {stats.successRate >= 90 ? <IconTrendingUp className="size-4" /> : <IconTrendingDown className="size-4" />}
           </div>
           <div className="text-muted-foreground">Successful code executions</div>
         </CardFooter>

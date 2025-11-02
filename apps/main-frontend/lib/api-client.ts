@@ -475,3 +475,80 @@ export async function getPracticeStats(): Promise<{
   });
   return res.data;
 }
+
+// ==================== DASHBOARD API ====================
+
+export interface DashboardStats {
+  overview: {
+    totalProjects: number;
+    projectsLastWeek: number;
+    projectsGrowth: string;
+    totalExecutions: number;
+    executionsLastMonth: number;
+    executionsGrowth: string;
+    totalCodeFiles: number;
+    successRate: number;
+    completedExecutions: number;
+    failedExecutions: number;
+    totalDSASubmissions: number;
+    acceptedDSASubmissions: number;
+    dsaSuccessRate: string;
+    totalPosts: number;
+  };
+  activityData: Array<{
+    date: string;
+    desktop: number;
+    mobile: number;
+  }>;
+}
+
+export interface RecentProject {
+  id: number;
+  header: string;
+  type: string;
+  status: string;
+  target: string;
+  limit: string;
+  reviewer: string;
+  createdAt: Date;
+  updatedAt: Date;
+  executionId?: string;
+  executionCount: number;
+  promptCount: number;
+}
+
+/**
+ * Get dashboard statistics
+ */
+export async function getDashboardStats(): Promise<{
+  success: boolean;
+  data: DashboardStats;
+}> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get("/api/dashboard/stats", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}
+
+/**
+ * Get recent projects for dashboard table
+ */
+export async function getRecentProjects(limit = 10): Promise<{
+  success: boolean;
+  projects: RecentProject[];
+}> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get(
+    `/api/dashboard/recent-projects?limit=${limit}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
