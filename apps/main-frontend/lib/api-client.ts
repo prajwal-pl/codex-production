@@ -304,3 +304,174 @@ export const getAllProjects = async (): Promise<GetAllProjectsResponse> => {
   );
   return res.data;
 };
+
+// ==================== Practice/DSA API ====================
+
+import type {
+  DSAProblem,
+  DSASubmission,
+  PistonRuntime,
+  ExecutionResult,
+  PracticeStats,
+  ProblemFilters,
+} from "@/types/practice";
+
+/**
+ * Get all DSA problems with optional filters
+ */
+export async function getProblems(
+  filters?: ProblemFilters
+): Promise<{ message: string; data: DSAProblem[] }> {
+  const params = new URLSearchParams();
+  if (filters?.difficulty) params.append("difficulty", filters.difficulty);
+  if (filters?.tags) params.append("tags", filters.tags.join(","));
+  if (filters?.solved !== undefined)
+    params.append("solved", String(filters.solved));
+  if (filters?.search) params.append("search", filters.search);
+
+  const token = getToken();
+  const res = await primaryBackendClient.get(`/api/problems?${params}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return res.data;
+}
+
+/**
+ * Get a single problem by slug
+ */
+export async function getProblemBySlug(
+  slug: string
+): Promise<{ message: string; data: DSAProblem }> {
+  const token = getToken();
+  const res = await primaryBackendClient.get(`/api/problems/${slug}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return res.data;
+}
+
+/**
+ * Execute code without saving (preview mode)
+ */
+export async function executeCode(data: {
+  language: string;
+  version?: string;
+  code: string;
+  stdin?: string;
+}): Promise<{ message: string; data: ExecutionResult }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.post("/api/submissions/execute", data, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}
+
+/**
+ * Submit code for a problem
+ */
+export async function submitCode(data: {
+  problemId: string;
+  language: string;
+  version?: string;
+  code: string;
+}): Promise<{ message: string; data: DSASubmission }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.post("/api/submissions/submit", data, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}
+
+/**
+ * Get all submissions for the current user
+ */
+export async function getAllSubmissions(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<{
+  message: string;
+  data: {
+    submissions: DSASubmission[];
+    total: number;
+    limit: number;
+    offset: number;
+  };
+}> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const queryParams = new URLSearchParams();
+  if (params?.limit) queryParams.append("limit", String(params.limit));
+  if (params?.offset) queryParams.append("offset", String(params.offset));
+
+  const res = await primaryBackendClient.get(
+    `/api/submissions?${queryParams}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Get a specific submission by ID
+ */
+export async function getSubmission(
+  id: string
+): Promise<{ message: string; data: DSASubmission }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get(`/api/submissions/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}
+
+/**
+ * Get submissions for a specific problem
+ */
+export async function getSubmissionsByProblem(
+  problemId: string
+): Promise<{ message: string; data: DSASubmission[] }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get(
+    `/api/submissions/problem/${problemId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Get available Piston runtimes
+ */
+export async function getRuntimes(): Promise<{
+  message: string;
+  data: PistonRuntime[];
+}> {
+  const res = await primaryBackendClient.get("/api/submissions/runtimes/list");
+  return res.data;
+}
+
+/**
+ * Get user's practice statistics
+ */
+export async function getPracticeStats(): Promise<{
+  message: string;
+  data: PracticeStats;
+}> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get("/api/problems/stats", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}

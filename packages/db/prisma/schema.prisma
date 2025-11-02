@@ -62,6 +62,17 @@ enum PromptRole {
   ASSISTANT
 }
 
+enum SubmissionStatus {
+  PENDING
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  RUNTIME_ERROR
+  COMPILATION_ERROR
+  INTERNAL_ERROR
+}
+
 model User {
   id               String             @id @default(uuid())
   name             String
@@ -76,6 +87,7 @@ model User {
   projects         Project[]
   projectTeammates ProjectMember[]
   dsaResults       DSAResult[]
+  dsaSubmissions   DSASubmission[]
   applications     JobApplication[]
   jobsPosted       Job[]
   comments         Comment[]
@@ -373,4 +385,71 @@ enum MessageType {
   IMAGE
   FILE
   LINK
+}
+
+model DSAProblem {
+  id          String     @id @default(uuid())
+  slug        String     @unique
+  title       String
+  difficulty  Difficulty
+  description String     @db.Text
+
+  tags        String[]
+  constraints String?  @db.Text
+  examples    Json
+  hints       String[]
+
+  testCases   DSATestCase[]
+  submissions DSASubmission[]
+
+  acceptanceRate Decimal? @db.Decimal(5, 2)
+  totalSolved    Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([difficulty])
+  @@index([slug])
+}
+
+model DSATestCase {
+  id        String     @id @default(uuid())
+  problemId String
+  problem   DSAProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  input          Json
+  expectedOutput Json
+  isHidden       Boolean @default(false)
+  explanation    String?
+
+  @@index([problemId])
+}
+
+model DSASubmission {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  problemId String
+  problem   DSAProblem @relation(fields: [problemId], references: [id])
+
+  language String
+  version  String
+  code     String @db.Text
+
+  status      SubmissionStatus @default(PENDING)
+  passedTests Int              @default(0)
+  totalTests  Int
+
+  executionTimeMs Int?
+  memoryUsedKb    Int?
+
+  testResults  Json?
+  pistonOutput Json?
+
+  submittedAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([problemId])
+  @@index([status])
+  @@index([submittedAt])
 }

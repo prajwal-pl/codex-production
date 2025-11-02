@@ -9,6 +9,8 @@ import practiceRoutes from "./routes/practice.route.js";
 import commentRoutes from "./routes/comment.route.js";
 import postRoutes from "./routes/post.route.js";
 import profileRoutes from "./routes/user.route.js";
+import problemRoutes from "./routes/problem.route.js";
+import submissionRoutes from "./routes/submission.route.js";
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -24,6 +26,8 @@ app.use("/api/practice", practiceRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/problems", problemRoutes);
+app.use("/api/submissions", submissionRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
