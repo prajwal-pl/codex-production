@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconPlus, IconFileText, IconLoader2 } from "@tabler/icons-react";
+import { UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -10,11 +11,19 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { getAllProjects } from "@/lib/api-client";
 import type { ProjectSummary } from "@/types/api";
+import { UserSearchDialog } from "@/components/global/teams/user-search-dialog";
 
 const WorkspacePage = () => {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
+
+  const handleInviteClick = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    setShowInviteDialog(true);
+  };
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -109,7 +118,15 @@ const WorkspacePage = () => {
                     Updated {formatDate(project.updatedAt)}
                   </p>
                 </div>
-                <div className="flex items-center justify-end">
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleInviteClick(project.id)}
+                  >
+                    <UserPlus className="h-4 w-4 mr-1" />
+                    Invite
+                  </Button>
                   <Button asChild size="sm" variant="outline">
                     <Link href={`/editor/${project.id}`}>Open</Link>
                   </Button>
@@ -119,6 +136,13 @@ const WorkspacePage = () => {
           ))}
         </div>
       )}
+
+      {/* User Search Dialog */}
+      <UserSearchDialog
+        open={showInviteDialog}
+        onOpenChange={setShowInviteDialog}
+        preselectedProjectId={selectedProjectId}
+      />
     </div>
   );
 };

@@ -552,3 +552,282 @@ export async function getRecentProjects(limit = 10): Promise<{
   return res.data;
 }
 
+// ==================== TEAMS API ====================
+
+import type {
+  User,
+  ProjectInvitation,
+  ProjectMember,
+  Notification,
+} from "@/types/teams";
+
+/**
+ * Search users by name or email
+ */
+export async function searchUsers(
+  query: string,
+  limit = 20
+): Promise<{ success: boolean; users: User[] }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get(
+    `/api/teams/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Send project invitation
+ */
+export async function sendProjectInvitation(payload: {
+  projectId: string;
+  receiverId: string;
+  role?: "MEMBER";
+  message?: string;
+}): Promise<{ success: boolean; invitation: ProjectInvitation }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.post("/api/teams/invitations", payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}
+
+/**
+ * Get received invitations
+ */
+export async function getReceivedInvitations(): Promise<{
+  success: boolean;
+  invitations: ProjectInvitation[];
+}> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get("/api/teams/invitations/received", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}
+
+/**
+ * Get sent invitations
+ */
+export async function getSentInvitations(): Promise<{
+  success: boolean;
+  invitations: ProjectInvitation[];
+}> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get("/api/teams/invitations/sent", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}
+
+/**
+ * Accept invitation
+ */
+export async function acceptInvitation(
+  invitationId: string
+): Promise<{ success: boolean; project: any; member: ProjectMember }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.post(
+    `/api/teams/invitations/${invitationId}/accept`,
+    {},
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Reject invitation
+ */
+export async function rejectInvitation(
+  invitationId: string
+): Promise<{ success: boolean }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.post(
+    `/api/teams/invitations/${invitationId}/reject`,
+    {},
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Cancel invitation (for sender)
+ */
+export async function cancelInvitation(
+  invitationId: string
+): Promise<{ success: boolean }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.delete(
+    `/api/teams/invitations/${invitationId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Get project members
+ */
+export async function getProjectMembers(
+  projectId: string
+): Promise<{ success: boolean; members: ProjectMember[] }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get(
+    `/api/teams/projects/${projectId}/members`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Remove member from project (owner only)
+ */
+export async function removeMember(
+  projectId: string,
+  memberId: string
+): Promise<{ success: boolean }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.delete(
+    `/api/teams/projects/${projectId}/members/${memberId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Update member role (owner only)
+ */
+export async function updateMemberRole(
+  projectId: string,
+  memberId: string,
+  role: "OWNER" | "MEMBER"
+): Promise<{ success: boolean; member: ProjectMember }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.patch(
+    `/api/teams/projects/${projectId}/members/${memberId}/role`,
+    { role },
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Leave project (member only)
+ */
+export async function leaveProject(
+  projectId: string
+): Promise<{ success: boolean }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.post(
+    `/api/teams/projects/${projectId}/leave`,
+    {},
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Get user notifications
+ */
+export async function getNotifications(params?: {
+  limit?: number;
+  offset?: number;
+  unreadOnly?: boolean;
+}): Promise<{
+  success: boolean;
+  notifications: Notification[];
+  unreadCount: number;
+}> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const queryParams = new URLSearchParams();
+  if (params?.limit) queryParams.append("limit", params.limit.toString());
+  if (params?.offset) queryParams.append("offset", params.offset.toString());
+  if (params?.unreadOnly) queryParams.append("unreadOnly", "true");
+
+  const res = await primaryBackendClient.get(
+    `/api/teams/notifications?${queryParams}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Mark notification as read
+ */
+export async function markNotificationRead(
+  notificationId: string
+): Promise<{ success: boolean }> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.patch(
+    `/api/teams/notifications/${notificationId}/read`,
+    {},
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Mark all notifications as read
+ */
+export async function markAllNotificationsRead(): Promise<{
+  success: boolean;
+  count: number;
+}> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.patch(
+    "/api/teams/notifications/read-all",
+    {},
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+

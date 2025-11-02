@@ -73,33 +73,54 @@ enum SubmissionStatus {
   INTERNAL_ERROR
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum NotificationType {
+  PROJECT_INVITATION
+  INVITATION_ACCEPTED
+  INVITATION_REJECTED
+  MEMBER_JOINED
+  MEMBER_LEFT
+  PROJECT_UPDATED
+  MESSAGE_RECEIVED
+}
+
 model User {
-  id               String             @id @default(uuid())
-  name             String
-  email            String             @unique
-  passwordHash     String?
-  bio              String?
-  resumeUrl        String?
-  githubUrl        String?
-  linkedinUrl      String?
-  stats            Stats?
-  posts            Post[]
-  projects         Project[]
-  projectTeammates ProjectMember[]
-  dsaResults       DSAResult[]
-  dsaSubmissions   DSASubmission[]
-  applications     JobApplication[]
-  jobsPosted       Job[]
-  comments         Comment[]
-  messagesSent     Message[]          @relation("UserMessages")
-  messageReads     MessageRead[]
-  interviewHost    InterviewSession[] @relation("host")
-  interviewGuest   InterviewSession[] @relation("guest")
-  codeExecutions   CodeExecution[]
-  sandboxUsage     SandboxUsage[] // NEW
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  ChatParticipant  ChatParticipant[]
+  id                  String              @id @default(uuid())
+  name                String
+  email               String              @unique
+  passwordHash        String?
+  bio                 String?
+  resumeUrl           String?
+  githubUrl           String?
+  linkedinUrl         String?
+  stats               Stats?
+  posts               Post[]
+  projects            Project[]
+  projectTeammates    ProjectMember[]
+  dsaResults          DSAResult[]
+  dsaSubmissions      DSASubmission[]
+  applications        JobApplication[]
+  jobsPosted          Job[]
+  comments            Comment[]
+  messagesSent        Message[]           @relation("UserMessages")
+  messageReads        MessageRead[]
+  interviewHost       InterviewSession[]  @relation("host")
+  interviewGuest      InterviewSession[]  @relation("guest")
+  codeExecutions      CodeExecution[]
+  sandboxUsage        SandboxUsage[]
+  sentInvitations     ProjectInvitation[] @relation("SentInvitations")
+  receivedInvitations ProjectInvitation[] @relation("ReceivedInvitations")
+  notifications       Notification[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  ChatParticipant     ChatParticipant[]
 }
 
 model Stats {
@@ -112,12 +133,13 @@ model Stats {
 }
 
 model Project {
-  id          String          @id @default(uuid())
+  id          String              @id @default(uuid())
   title       String
   description String?
   prompts     Prompt[] // renamed from prompt
   members     ProjectMember[]
   executions  CodeExecution[] // NEW
+  invitations ProjectInvitation[]
 
   // Conversation state tracking
   activeSandboxId     String? // Current running sandbox for live updates
@@ -263,8 +285,13 @@ model ProjectMember {
   userId    String
   projectId String
   role      ProjectRole @default(MEMBER)
-  User      User        @relation(fields: [userId], references: [id])
-  Project   Project     @relation(fields: [projectId], references: [id])
+  joinedAt  DateTime    @default(now())
+  User      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
 }
 
 model Post {
@@ -452,4 +479,42 @@ model DSASubmission {
   @@index([problemId])
   @@index([status])
   @@index([submittedAt])
+}
+
+model ProjectInvitation {
+  id         String           @id @default(uuid())
+  projectId  String
+  senderId   String
+  receiverId String
+  status     InvitationStatus @default(PENDING)
+  role       ProjectRole      @default(MEMBER)
+  message    String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  expiresAt  DateTime?
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sender   User    @relation("SentInvitations", fields: [senderId], references: [id])
+  receiver User    @relation("ReceivedInvitations", fields: [receiverId], references: [id])
+
+  @@unique([projectId, receiverId])
+  @@index([receiverId, status])
+  @@index([projectId])
+  @@index([senderId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
 }

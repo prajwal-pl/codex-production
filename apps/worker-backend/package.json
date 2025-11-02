@@ -15,14 +15,14 @@
     "@azure-rest/ai-inference": "^1.0.0-beta.6",
     "@azure/core-auth": "^1.10.1",
     "@e2b/code-interpreter": "^2.0.1",
-    "@trigger.dev/sdk": "^4.0.4",
+    "@trigger.dev/sdk": "4.0.5",
     "ai": "^5.0.63",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@repo/common": "*",
     "@repo/db": "*",
-    "@trigger.dev/build": "^4.0.4",
+    "@trigger.dev/build": "4.0.5",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   },
