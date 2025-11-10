@@ -454,3 +454,60 @@ export const markAllNotificationsReadHandler = async (req: Request, res: Respons
         res.status(500).json({ success: false, error: "Failed to mark all notifications as read" });
     }
 };
+
+/**
+ * Get collaborative projects where user is a member (not owner)
+ */
+export const getCollaborativeProjectsHandler = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = (req as AuthRequest).userId;
+
+        // Get projects where user is a member
+        const memberships = await prisma.projectMember.findMany({
+            where: { userId },
+            include: {
+                Project: {
+                    include: {
+                        user: { select: { id: true, name: true, email: true } },
+                    },
+                },
+            },
+            orderBy: { joinedAt: "desc" },
+        });
+
+        // Get all members for each project
+        const projectsWithMembers = await Promise.all(
+            memberships.map(async (membership) => {
+                const members = await prisma.projectMember.findMany({
+                    where: { projectId: membership.Project.id },
+                    include: { User: { select: { id: true, name: true, email: true } } },
+                    orderBy: { joinedAt: "asc" },
+                });
+
+                return {
+                    id: membership.Project.id,
+                    title: membership.Project.title,
+                    description: membership.Project.description,
+                    createdAt: membership.Project.createdAt,
+                    updatedAt: membership.Project.updatedAt,
+                    owner: membership.Project.user,
+                    userRole: membership.role,
+                    members: members.map((m) => ({
+                        id: m.id,
+                        userId: m.userId,
+                        projectId: m.projectId,
+                        role: m.role,
+                        joinedAt: m.joinedAt,
+                        user: m.User,
+                    })),
+                    memberCount: members.length,
+                };
+            })
+        );
+
+        res.json({ success: true, projects: projectsWithMembers });
+    } catch (error) {
+        console.error("Get collaborative projects error:", error);
+        res.status(500).json({ success: false, error: "Failed to fetch collaborative projects" });
+    }
+};

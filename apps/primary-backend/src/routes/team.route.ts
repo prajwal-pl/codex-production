@@ -18,6 +18,9 @@ router.post("/invitations/:invitationId/accept", teamController.acceptInvitation
 router.post("/invitations/:invitationId/reject", teamController.rejectInvitationHandler);
 router.delete("/invitations/:invitationId", teamController.cancelInvitationHandler);
 
+// Collaborative Projects
+router.get("/projects/collaborative", teamController.getCollaborativeProjectsHandler);
+
 // Project Members
 router.get("/projects/:projectId/members", teamController.getProjectMembersHandler);
 router.delete("/projects/:projectId/members/:memberId", teamController.removeMemberHandler);

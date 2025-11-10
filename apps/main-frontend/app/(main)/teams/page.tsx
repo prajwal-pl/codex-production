@@ -8,6 +8,7 @@ import { UserPlus, Globe, BookOpen } from "lucide-react";
 import { InvitationList } from "@/components/global/teams/invitation-list";
 import { ComingSoonTab } from "@/components/global/teams/coming-soon-tab";
 import { UserSearchDialog } from "@/components/global/teams/user-search-dialog";
+import { TeamProjectsList } from "@/components/global/teams/team-projects-list";
 import { getReceivedInvitations } from "@/lib/api-client";
 
 export default function TeamsPage() {
@@ -71,13 +72,10 @@ export default function TeamsPage() {
                         <InvitationList />
                     </div>
 
-                    {/* Team Projects Section - Coming Soon */}
+                    {/* Team Projects Section */}
                     <div>
                         <h2 className="text-xl font-semibold mb-4">Team Projects</h2>
-                        <div className="text-center text-muted-foreground py-12 border rounded-lg">
-                            <p>Team project management coming soon!</p>
-                            <p className="text-sm mt-2">You'll be able to see and manage collaborative projects here.</p>
-                        </div>
+                        <TeamProjectsList />
                     </div>
                 </TabsContent>
 

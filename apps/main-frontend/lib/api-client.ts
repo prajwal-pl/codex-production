@@ -831,3 +831,32 @@ export async function markAllNotificationsRead(): Promise<{
   return res.data;
 }
 
+/**
+ * Get collaborative projects where user is a member
+ */
+export async function getCollaborativeProjects(): Promise<{
+  success: boolean;
+  projects: Array<{
+    id: string;
+    title: string;
+    description?: string;
+    createdAt: string;
+    updatedAt: string;
+    owner: User;
+    userRole: "OWNER" | "MEMBER";
+    members: ProjectMember[];
+    memberCount: number;
+  }>;
+}> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get(
+    "/api/teams/projects/collaborative",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+

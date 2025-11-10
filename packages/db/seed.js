@@ -1,20 +1,73 @@
-import prisma from "@repo/db/client";
-import { Difficulty } from "@prisma/client";
-const problems = [
+"use strict";
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
+    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (g && (g = 0, op[0] && (_ = 0)), _) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+var client_1 = require("@repo/db/client");
+var prisma_1 = require("@repo/db/generated/prisma");
+var problems = [
     {
         slug: "two-sum",
         title: "Two Sum",
-        difficulty: Difficulty.EASY,
-        description: `Given an array of integers \`nums\` and an integer \`target\`, return indices of the two numbers such that they add up to \`target\`.
-
-You may assume that each input would have exactly one solution, and you may not use the same element twice.
-
-You can return the answer in any order.`,
+        difficulty: prisma_1.Difficulty.EASY,
+        description: "Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.\n\nYou can return the answer in any order.",
         tags: ["array", "hash-table"],
-        constraints: `- 2 <= nums.length <= 10^4
-- -10^9 <= nums[i] <= 10^9
-- -10^9 <= target <= 10^9
-- Only one valid answer exists.`,
+        constraints: "- 2 <= nums.length <= 10^4\n- -10^9 <= nums[i] <= 10^9\n- -10^9 <= target <= 10^9\n- Only one valid answer exists.",
         examples: [
             {
                 input: "nums = [2,7,11,15], target = 9",
@@ -39,13 +92,10 @@ You can return the answer in any order.`,
     {
         slug: "reverse-string",
         title: "Reverse String",
-        difficulty: Difficulty.EASY,
-        description: `Write a function that reverses a string. The input string is given as an array of characters \`s\`.
-
-You must do this by modifying the input array in-place with O(1) extra memory.`,
+        difficulty: prisma_1.Difficulty.EASY,
+        description: "Write a function that reverses a string. The input string is given as an array of characters `s`.\n\nYou must do this by modifying the input array in-place with O(1) extra memory.",
         tags: ["two-pointers", "string"],
-        constraints: `- 1 <= s.length <= 10^5
-- s[i] is a printable ascii character.`,
+        constraints: "- 1 <= s.length <= 10^5\n- s[i] is a printable ascii character.",
         examples: [
             {
                 input: 's = ["h","e","l","l","o"]',
@@ -69,10 +119,10 @@ You must do this by modifying the input array in-place with O(1) extra memory.`,
     {
         slug: "palindrome-number",
         title: "Palindrome Number",
-        difficulty: Difficulty.EASY,
-        description: `Given an integer \`x\`, return \`true\` if \`x\` is a palindrome, and \`false\` otherwise.`,
+        difficulty: prisma_1.Difficulty.EASY,
+        description: "Given an integer `x`, return `true` if `x` is a palindrome, and `false` otherwise.",
         tags: ["math"],
-        constraints: `-2^31 <= x <= 2^31 - 1`,
+        constraints: "-2^31 <= x <= 2^31 - 1",
         examples: [
             {
                 input: "x = 121",
@@ -103,16 +153,10 @@ You must do this by modifying the input array in-place with O(1) extra memory.`,
     {
         slug: "valid-parentheses",
         title: "Valid Parentheses",
-        difficulty: Difficulty.EASY,
-        description: `Given a string \`s\` containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid.
-
-An input string is valid if:
-1. Open brackets must be closed by the same type of brackets.
-2. Open brackets must be closed in the correct order.
-3. Every close bracket has a corresponding open bracket of the same type.`,
+        difficulty: prisma_1.Difficulty.EASY,
+        description: "Given a string `s` containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid.\n\nAn input string is valid if:\n1. Open brackets must be closed by the same type of brackets.\n2. Open brackets must be closed in the correct order.\n3. Every close bracket has a corresponding open bracket of the same type.",
         tags: ["string", "stack"],
-        constraints: `- 1 <= s.length <= 10^4
-- s consists of parentheses only '()[]{}'.`,
+        constraints: "- 1 <= s.length <= 10^4\n- s consists of parentheses only '()[]{}'.",
         examples: [
             { input: 's = "()"', output: "true" },
             { input: 's = "()[]{}"', output: "true" },
@@ -134,16 +178,10 @@ An input string is valid if:
     {
         slug: "merge-two-sorted-lists",
         title: "Merge Two Sorted Lists",
-        difficulty: Difficulty.EASY,
-        description: `You are given the heads of two sorted linked lists \`list1\` and \`list2\`.
-
-Merge the two lists into one sorted list. The list should be made by splicing together the nodes of the first two lists.
-
-Return the head of the merged linked list.`,
+        difficulty: prisma_1.Difficulty.EASY,
+        description: "You are given the heads of two sorted linked lists `list1` and `list2`.\n\nMerge the two lists into one sorted list. The list should be made by splicing together the nodes of the first two lists.\n\nReturn the head of the merged linked list.",
         tags: ["linked-list", "recursion"],
-        constraints: `- The number of nodes in both lists is in the range [0, 50].
-- -100 <= Node.val <= 100
-- Both list1 and list2 are sorted in non-decreasing order.`,
+        constraints: "- The number of nodes in both lists is in the range [0, 50].\n- -100 <= Node.val <= 100\n- Both list1 and list2 are sorted in non-decreasing order.",
         examples: [
             {
                 input: "list1 = [1,2,4], list2 = [1,3,4]",
@@ -165,11 +203,10 @@ Return the head of the merged linked list.`,
     {
         slug: "longest-substring-without-repeating",
         title: "Longest Substring Without Repeating Characters",
-        difficulty: Difficulty.MEDIUM,
-        description: `Given a string \`s\`, find the length of the longest substring without repeating characters.`,
+        difficulty: prisma_1.Difficulty.MEDIUM,
+        description: "Given a string `s`, find the length of the longest substring without repeating characters.",
         tags: ["hash-table", "string", "sliding-window"],
-        constraints: `- 0 <= s.length <= 5 * 10^4
-- s consists of English letters, digits, symbols and spaces.`,
+        constraints: "- 0 <= s.length <= 5 * 10^4\n- s consists of English letters, digits, symbols and spaces.",
         examples: [
             {
                 input: 's = "abcabcbb"',
@@ -202,13 +239,10 @@ Return the head of the merged linked list.`,
     {
         slug: "3sum",
         title: "3Sum",
-        difficulty: Difficulty.MEDIUM,
-        description: `Given an integer array nums, return all the triplets \`[nums[i], nums[j], nums[k]]\` such that \`i != j\`, \`i != k\`, and \`j != k\`, and \`nums[i] + nums[j] + nums[k] == 0\`.
-
-Notice that the solution set must not contain duplicate triplets.`,
+        difficulty: prisma_1.Difficulty.MEDIUM,
+        description: "Given an integer array nums, return all the triplets `[nums[i], nums[j], nums[k]]` such that `i != j`, `i != k`, and `j != k`, and `nums[i] + nums[j] + nums[k] == 0`.\n\nNotice that the solution set must not contain duplicate triplets.",
         tags: ["array", "two-pointers", "sorting"],
-        constraints: `- 3 <= nums.length <= 3000
-- -10^5 <= nums[i] <= 10^5`,
+        constraints: "- 3 <= nums.length <= 3000\n- -10^5 <= nums[i] <= 10^5",
         examples: [
             {
                 input: "nums = [-1,0,1,2,-1,-4]",
@@ -236,16 +270,10 @@ Notice that the solution set must not contain duplicate triplets.`,
     {
         slug: "container-with-most-water",
         title: "Container With Most Water",
-        difficulty: Difficulty.MEDIUM,
-        description: `You are given an integer array \`height\` of length \`n\`. There are \`n\` vertical lines drawn such that the two endpoints of the \`i-th\` line are \`(i, 0)\` and \`(i, height[i])\`.
-
-Find two lines that together with the x-axis form a container, such that the container contains the most water.
-
-Return the maximum amount of water a container can store.`,
+        difficulty: prisma_1.Difficulty.MEDIUM,
+        description: "You are given an integer array `height` of length `n`. There are `n` vertical lines drawn such that the two endpoints of the `i-th` line are `(i, 0)` and `(i, height[i])`.\n\nFind two lines that together with the x-axis form a container, such that the container contains the most water.\n\nReturn the maximum amount of water a container can store.",
         tags: ["array", "two-pointers", "greedy"],
-        constraints: `- n == height.length
-- 2 <= n <= 10^5
-- 0 <= height[i] <= 10^4`,
+        constraints: "- n == height.length\n- 2 <= n <= 10^5\n- 0 <= height[i] <= 10^4",
         examples: [
             {
                 input: "height = [1,8,6,2,5,4,8,3,7]",
@@ -268,11 +296,10 @@ Return the maximum amount of water a container can store.`,
     {
         slug: "binary-tree-inorder-traversal",
         title: "Binary Tree Inorder Traversal",
-        difficulty: Difficulty.EASY,
-        description: `Given the \`root\` of a binary tree, return the inorder traversal of its nodes' values.`,
+        difficulty: prisma_1.Difficulty.EASY,
+        description: "Given the `root` of a binary tree, return the inorder traversal of its nodes' values.",
         tags: ["tree", "depth-first-search", "binary-tree"],
-        constraints: `- The number of nodes in the tree is in the range [0, 100].
-- -100 <= Node.val <= 100`,
+        constraints: "- The number of nodes in the tree is in the range [0, 100].\n- -100 <= Node.val <= 100",
         examples: [
             {
                 input: "root = [1,null,2,3]",
@@ -294,11 +321,10 @@ Return the maximum amount of water a container can store.`,
     {
         slug: "maximum-subarray",
         title: "Maximum Subarray",
-        difficulty: Difficulty.MEDIUM,
-        description: `Given an integer array \`nums\`, find the subarray with the largest sum, and return its sum.`,
+        difficulty: prisma_1.Difficulty.MEDIUM,
+        description: "Given an integer array `nums`, find the subarray with the largest sum, and return its sum.",
         tags: ["array", "divide-and-conquer", "dynamic-programming"],
-        constraints: `- 1 <= nums.length <= 10^5
-- -10^4 <= nums[i] <= 10^4`,
+        constraints: "- 1 <= nums.length <= 10^5\n- -10^4 <= nums[i] <= 10^4",
         examples: [
             {
                 input: "nums = [-2,1,-3,4,-1,2,1,-5,4]",
@@ -326,17 +352,10 @@ Return the maximum amount of water a container can store.`,
     {
         slug: "median-of-two-sorted-arrays",
         title: "Median of Two Sorted Arrays",
-        difficulty: Difficulty.HARD,
-        description: `Given two sorted arrays \`nums1\` and \`nums2\` of size \`m\` and \`n\` respectively, return the median of the two sorted arrays.
-
-The overall run time complexity should be O(log (m+n)).`,
+        difficulty: prisma_1.Difficulty.HARD,
+        description: "Given two sorted arrays `nums1` and `nums2` of size `m` and `n` respectively, return the median of the two sorted arrays.\n\nThe overall run time complexity should be O(log (m+n)).",
         tags: ["array", "binary-search", "divide-and-conquer"],
-        constraints: `- nums1.length == m
-- nums2.length == n
-- 0 <= m <= 1000
-- 0 <= n <= 1000
-- 1 <= m + n <= 2000
-- -10^6 <= nums1[i], nums2[i] <= 10^6`,
+        constraints: "- nums1.length == m\n- nums2.length == n\n- 0 <= m <= 1000\n- 0 <= n <= 1000\n- 1 <= m + n <= 2000\n- -10^6 <= nums1[i], nums2[i] <= 10^6",
         examples: [
             {
                 input: "nums1 = [1,3], nums2 = [2]",
@@ -363,12 +382,10 @@ The overall run time complexity should be O(log (m+n)).`,
     {
         slug: "trapping-rain-water",
         title: "Trapping Rain Water",
-        difficulty: Difficulty.HARD,
-        description: `Given \`n\` non-negative integers representing an elevation map where the width of each bar is \`1\`, compute how much water it can trap after raining.`,
+        difficulty: prisma_1.Difficulty.HARD,
+        description: "Given `n` non-negative integers representing an elevation map where the width of each bar is `1`, compute how much water it can trap after raining.",
         tags: ["array", "two-pointers", "dynamic-programming", "stack"],
-        constraints: `- n == height.length
-- 1 <= n <= 2 * 10^4
-- 0 <= height[i] <= 10^5`,
+        constraints: "- n == height.length\n- 1 <= n <= 2 * 10^4\n- 0 <= height[i] <= 10^5",
         examples: [
             {
                 input: "height = [0,1,0,2,1,0,1,3,2,1,2,1]",
@@ -393,48 +410,72 @@ The overall run time complexity should be O(log (m+n)).`,
         ],
     },
 ];
-async function seed() {
-    console.log("🌱 Starting database seed...");
-    try {
-        // Clear existing DSA data
-        console.log("Clearing existing DSA data...");
-        await prisma.dSASubmission.deleteMany();
-        await prisma.dSATestCase.deleteMany();
-        await prisma.dSAProblem.deleteMany();
-        console.log("Creating DSA problems...");
-        for (const problemData of problems) {
-            const { testCases, ...problem } = problemData;
-            await prisma.dSAProblem.create({
-                data: {
-                    ...problem,
-                    testCases: {
-                        create: testCases.map((tc) => ({
-                            input: tc.input,
-                            expectedOutput: tc.expectedOutput,
-                            isHidden: tc.isHidden,
-                        })),
-                    },
-                },
-            });
-            console.log(`  ✓ Created: ${problem.title}`);
-        }
-        console.log("\n✅ Seed completed successfully!");
-        console.log(`📊 Created ${problems.length} problems`);
-        console.log(`   - ${problems.filter((p) => p.difficulty === Difficulty.EASY).length} EASY`);
-        console.log(`   - ${problems.filter((p) => p.difficulty === Difficulty.MEDIUM).length} MEDIUM`);
-        console.log(`   - ${problems.filter((p) => p.difficulty === Difficulty.HARD).length} HARD`);
-    }
-    catch (error) {
-        console.error("❌ Seed failed:", error);
-        throw error;
-    }
-    finally {
-        await prisma.$disconnect();
-    }
+function seed() {
+    return __awaiter(this, void 0, void 0, function () {
+        var _i, problems_1, problemData, testCases, problem, error_1;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    console.log("🌱 Starting database seed...");
+                    _a.label = 1;
+                case 1:
+                    _a.trys.push([1, 9, 10, 12]);
+                    // Clear existing DSA data
+                    console.log("Clearing existing DSA data...");
+                    return [4 /*yield*/, client_1.default.dSASubmission.deleteMany()];
+                case 2:
+                    _a.sent();
+                    return [4 /*yield*/, client_1.default.dSATestCase.deleteMany()];
+                case 3:
+                    _a.sent();
+                    return [4 /*yield*/, client_1.default.dSAProblem.deleteMany()];
+                case 4:
+                    _a.sent();
+                    console.log("Creating DSA problems...");
+                    _i = 0, problems_1 = problems;
+                    _a.label = 5;
+                case 5:
+                    if (!(_i < problems_1.length)) return [3 /*break*/, 8];
+                    problemData = problems_1[_i];
+                    testCases = problemData.testCases, problem = __rest(problemData, ["testCases"]);
+                    return [4 /*yield*/, client_1.default.dSAProblem.create({
+                            data: __assign(__assign({}, problem), { testCases: {
+                                    create: testCases.map(function (tc) { return ({
+                                        input: tc.input,
+                                        expectedOutput: tc.expectedOutput,
+                                        isHidden: tc.isHidden,
+                                    }); }),
+                                } }),
+                        })];
+                case 6:
+                    _a.sent();
+                    console.log("  \u2713 Created: ".concat(problem.title));
+                    _a.label = 7;
+                case 7:
+                    _i++;
+                    return [3 /*break*/, 5];
+                case 8:
+                    console.log("\n✅ Seed completed successfully!");
+                    console.log("\uD83D\uDCCA Created ".concat(problems.length, " problems"));
+                    console.log("   - ".concat(problems.filter(function (p) { return p.difficulty === prisma_1.Difficulty.EASY; }).length, " EASY"));
+                    console.log("   - ".concat(problems.filter(function (p) { return p.difficulty === prisma_1.Difficulty.MEDIUM; }).length, " MEDIUM"));
+                    console.log("   - ".concat(problems.filter(function (p) { return p.difficulty === prisma_1.Difficulty.HARD; }).length, " HARD"));
+                    return [3 /*break*/, 12];
+                case 9:
+                    error_1 = _a.sent();
+                    console.error("❌ Seed failed:", error_1);
+                    throw error_1;
+                case 10: return [4 /*yield*/, client_1.default.$disconnect()];
+                case 11:
+                    _a.sent();
+                    return [7 /*endfinally*/];
+                case 12: return [2 /*return*/];
+            }
+        });
+    });
 }
 seed()
-    .catch((error) => {
+    .catch(function (error) {
     console.error(error);
     process.exit(1);
 });
-//# sourceMappingURL=seed.js.map
