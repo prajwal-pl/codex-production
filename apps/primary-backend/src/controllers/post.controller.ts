@@ -11,18 +11,34 @@ export const getAllPostsDataHandler = async (req: Request, res: Response) => {
       where: {
         isFlagged: false,
       },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        _count: {
+          select: {
+            comments: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
-    if (!posts || posts.length === 0) {
-      return res.status(404).json({ message: "No posts found" });
-    }
 
     return res.status(200).json({
+      success: true,
       message: "Posts retrieved successfully",
       data: posts,
     });
   } catch (error) {
     console.log(error);
     return res.status(500).json({
+      success: false,
       message: "Internal server error",
       error: error instanceof Error ? error.message : "Unknown error",
     });
@@ -45,19 +61,44 @@ export const getPostByIdHandler = async (req: Request, res: Response) => {
         id: postId,
         isFlagged: false,
       },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        comments: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+      },
     });
 
     if (!post) {
-      return res.status(404).json({ message: "Post not found" });
+      return res.status(404).json({ success: false, message: "Post not found" });
     }
 
     return res.status(200).json({
+      success: true,
       message: "Post retrieved successfully",
       data: post,
     });
   } catch (error) {
     console.log(error);
     return res.status(500).json({
+      success: false,
       message: "Internal server error",
       error: error instanceof Error ? error.message : "Unknown error",
     });
@@ -69,12 +110,12 @@ export const createPostHandler = async (req: Request, res: Response) => {
     const userId = req.userId;
     const { title, content } = req.body;
     if (!userId) {
-      return res.status(401).json({ message: "Unauthorized" });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
     if (!title || !content) {
       return res
         .status(400)
-        .json({ message: "Title and content are required" });
+        .json({ success: false, message: "Title and content are required" });
     }
 
     const post = await prisma.post.create({
@@ -87,15 +128,31 @@ export const createPostHandler = async (req: Request, res: Response) => {
           },
         },
       },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        _count: {
+          select: {
+            comments: true,
+          },
+        },
+      },
     });
 
     return res.status(201).json({
+      success: true,
       message: "Post created successfully",
       data: post,
     });
   } catch (error) {
     console.log(error);
     return res.status(500).json({
+      success: false,
       message: "Internal server error",
       error: error instanceof Error ? error.message : "Unknown error",
     });
@@ -187,4 +244,4 @@ export const deletePostHandler = async (req: Request, res: Response) => {
   }
 };
 
-export const flagPostHandler = async (req: Request, res: Response) => {};
+export const flagPostHandler = async (req: Request, res: Response) => { };

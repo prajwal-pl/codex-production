@@ -860,3 +860,193 @@ export async function getCollaborativeProjects(): Promise<{
   return res.data;
 }
 
+// ==================== COMMUNITY API ====================
+
+import type {
+  GetAllPostsResponse,
+  GetPostByIdResponse,
+  CreatePostRequest,
+  CreatePostResponse,
+  CreateCommentRequest,
+  CreateCommentResponse,
+  DeletePostResponse,
+  DeleteCommentResponse,
+} from "@/types/community";
+
+/**
+ * Get all community posts
+ */
+export async function getAllPosts(): Promise<GetAllPostsResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get<GetAllPostsResponse>(
+    "/api/posts",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Get a specific post by ID with comments
+ */
+export async function getPostById(postId: string): Promise<GetPostByIdResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get<GetPostByIdResponse>(
+    `/api/posts/${postId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Create a new community post
+ */
+export async function createPost(payload: CreatePostRequest): Promise<CreatePostResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.post<CreatePostResponse>(
+    "/api/posts",
+    payload,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Delete a post (owner only)
+ */
+export async function deletePost(postId: string): Promise<DeletePostResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.delete<DeletePostResponse>(
+    `/api/posts/${postId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Add a comment to a post
+ */
+export async function createComment(
+  postId: string,
+  payload: CreateCommentRequest
+): Promise<CreateCommentResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.post<CreateCommentResponse>(
+    `/api/comments/${postId}`,
+    payload,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Delete a comment (owner only)
+ */
+export async function deleteComment(commentId: string): Promise<DeleteCommentResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.delete<DeleteCommentResponse>(
+    `/api/comments/${commentId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+// ==================== PROFILE API ====================
+
+import type {
+  GetProfileResponse,
+  GetProfileStatsResponse,
+  UpdateProfileRequest,
+  UpdateProfileResponse,
+  DeleteProfileResponse,
+} from "@/types/profile";
+
+/**
+ * Get user profile
+ */
+export async function getUserProfile(): Promise<GetProfileResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get<GetProfileResponse>(
+    "/api/profile",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Get user profile statistics
+ */
+export async function getProfileStats(): Promise<GetProfileStatsResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.get<GetProfileStatsResponse>(
+    "/api/profile/stats",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Update user profile
+ */
+export async function updateProfile(
+  payload: UpdateProfileRequest
+): Promise<UpdateProfileResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.put<UpdateProfileResponse>(
+    "/api/profile/update",
+    payload,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Delete user account
+ */
+export async function deleteAccount(): Promise<DeleteProfileResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await primaryBackendClient.delete<DeleteProfileResponse>(
+    "/api/profile/delete",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
