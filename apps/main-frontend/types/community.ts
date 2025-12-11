@@ -19,6 +19,7 @@ export interface Post {
     id: string;
     title: string;
     content: string;
+    imageUrl: string | null;
     authorId: string;
     createdAt: string;
     updatedAt: string;
@@ -48,6 +49,7 @@ export interface GetPostByIdResponse {
 export interface CreatePostRequest {
     title: string;
     content: string;
+    imageUrl?: string;
 }
 
 export interface CreatePostResponse {

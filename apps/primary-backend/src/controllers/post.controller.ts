@@ -108,7 +108,7 @@ export const getPostByIdHandler = async (req: Request, res: Response) => {
 export const createPostHandler = async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
-    const { title, content } = req.body;
+    const { title, content, imageUrl } = req.body;
     if (!userId) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
@@ -122,6 +122,7 @@ export const createPostHandler = async (req: Request, res: Response) => {
       data: {
         title,
         content,
+        imageUrl: imageUrl || null,
         author: {
           connect: {
             id: userId,

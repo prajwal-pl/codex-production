@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus } from "lucide-react";
+import { Plus, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { createPost } from "@/lib/api-client";
 
@@ -27,6 +27,7 @@ export function CreatePostDialog({ onSuccess }: CreatePostDialogProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
+    const [imageUrl, setImageUrl] = useState("");
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,10 +44,15 @@ export function CreatePostDialog({ onSuccess }: CreatePostDialogProps) {
 
         setIsSubmitting(true);
         try {
-            await createPost({ title: title.trim(), content: content.trim() });
+            await createPost({
+                title: title.trim(),
+                content: content.trim(),
+                imageUrl: imageUrl.trim() || undefined,
+            });
             toast.success("Post created successfully");
             setTitle("");
             setContent("");
+            setImageUrl("");
             setOpen(false);
             onSuccess();
         } catch (err: unknown) {
@@ -63,6 +69,7 @@ export function CreatePostDialog({ onSuccess }: CreatePostDialogProps) {
             if (!newOpen) {
                 setTitle("");
                 setContent("");
+                setImageUrl("");
             }
         }
     };
@@ -106,6 +113,23 @@ export function CreatePostDialog({ onSuccess }: CreatePostDialogProps) {
                                 rows={6}
                                 className="resize-none"
                             />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="imageUrl" className="flex items-center gap-2">
+                                <ImageIcon className="h-4 w-4" />
+                                Image URL (optional)
+                            </Label>
+                            <Input
+                                id="imageUrl"
+                                placeholder="https://example.com/image.jpg"
+                                value={imageUrl}
+                                onChange={(e) => setImageUrl(e.target.value)}
+                                disabled={isSubmitting}
+                                type="url"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Add an image URL to make your post more engaging
+                            </p>
                         </div>
                     </div>
                     <DialogFooter>

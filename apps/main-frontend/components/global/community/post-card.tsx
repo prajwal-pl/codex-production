@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -113,6 +113,17 @@ export function PostCard({ post, currentUserId, onDelete }: PostCardProps) {
                         <h3 className="font-semibold text-lg mb-2 group-hover/link:text-primary transition-colors line-clamp-2">
                             {post.title}
                         </h3>
+                        {post.imageUrl && (
+                            <div className="relative w-full h-48 mb-3 rounded-lg overflow-hidden bg-muted">
+                                <Image
+                                    src={post.imageUrl}
+                                    alt={post.title}
+                                    fill
+                                    className="object-cover transition-transform group-hover/link:scale-105"
+                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                />
+                            </div>
+                        )}
                         <p className="text-muted-foreground text-sm line-clamp-3">
                             {post.content}
                         </p>
