@@ -1050,3 +1050,84 @@ export async function deleteAccount(): Promise<DeleteProfileResponse> {
   );
   return res.data;
 }
+
+// ==========================================
+// LEARN/CHAT API
+// ==========================================
+
+export interface SendChatMessageRequest {
+  message: string;
+  conversationId?: string;
+  context?: {
+    projectId?: string;
+    projectTitle?: string;
+    fileContents?: {
+      path: string;
+      content: string;
+    }[];
+  };
+}
+
+export interface SendChatMessageResponse {
+  success: boolean;
+  message: string;
+  data: {
+    conversationId: string;
+    response: string;
+    usage?: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    };
+  };
+}
+
+export interface ChatHistoryItem {
+  id: string;
+  title: string;
+  messageCount: number;
+  lastMessage: string;
+  createdAt: string;
+}
+
+export interface GetChatHistoryResponse {
+  success: boolean;
+  message: string;
+  data: ChatHistoryItem[];
+}
+
+/**
+ * Send a message to the AI chat
+ */
+export async function sendChatMessage(
+  payload: SendChatMessageRequest
+): Promise<SendChatMessageResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await workerBackendClient.post<SendChatMessageResponse>(
+    "/api/chat",
+    payload,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Get chat history for current user
+ */
+export async function getChatHistory(): Promise<GetChatHistoryResponse> {
+  const token = getToken();
+  if (!token) throw new Error("Authentication required");
+
+  const res = await workerBackendClient.get<GetChatHistoryResponse>(
+    "/api/chat/history",
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return res.data;
+}
+

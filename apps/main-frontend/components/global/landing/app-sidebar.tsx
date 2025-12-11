@@ -4,16 +4,14 @@ import React, { useEffect, useState } from "react";
 import {
   IconChartBar,
   IconDashboard,
-  IconDatabase,
-  IconFileDescription,
   IconFolder,
   IconListDetails,
   IconSettings,
   IconTerminal,
   IconUsers,
+  IconSchool,
 } from "@tabler/icons-react";
 
-import { NavDocuments } from "@/components/global/landing/nav-documents";
 import { NavMain } from "@/components/global/landing/nav-main";
 import { NavProjects } from "@/components/global/landing/nav-projects";
 import { NavSecondary } from "@/components/global/landing/nav-secondary";
@@ -43,6 +41,11 @@ const data = {
       title: "Workspace",
       url: "/workspace",
       icon: IconListDetails,
+    },
+    {
+      title: "Learn",
+      url: "/learn",
+      icon: IconSchool,
     },
     {
       title: "Practice",

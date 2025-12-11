@@ -2,12 +2,14 @@ import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
 import { AzureKeyCredential } from "@azure/core-auth";
 import { logger } from "@trigger.dev/sdk/v3";
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_MODELS_ENDPOINT = "https://models.github.ai/inference";
 const DEFAULT_MODEL = "gpt-4.1"; // GPT-4.1: 1,049K input tokens! Best for code generation with large context
 
-if (!GITHUB_TOKEN) {
-    logger.warn("⚠️  GITHUB_TOKEN not set - GitHub Models API will not work");
+/**
+ * Get GitHub token - retrieved at runtime to ensure dotenv has loaded
+ */
+function getGitHubToken(): string | undefined {
+    return process.env.GITHUB_TOKEN;
 }
 
 /**
@@ -52,7 +54,8 @@ export async function generateWithGitHubModels(
     completionTokens: number;
     totalTokens: number;
 }> {
-    if (!GITHUB_TOKEN) {
+    const token = getGitHubToken();
+    if (!token) {
         throw new Error("GITHUB_TOKEN environment variable is not set");
     }
 
@@ -91,7 +94,7 @@ export async function generateWithGitHubModels(
 
     const client = ModelClient(
         GITHUB_MODELS_ENDPOINT,
-        new AzureKeyCredential(GITHUB_TOKEN)
+        new AzureKeyCredential(token)
     );
 
     const response = await client.path("/chat/completions").post({
